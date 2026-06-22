@@ -66,6 +66,40 @@ reports/zotero_import_staging.ris
 
 This RIS file is intended as a staging import for candidate new literature only. Title and author fields are inferred from PDF text and should be reviewed before final Zotero ingestion.
 
+## Route PDFs Into Processed Folders
+
+Preview routing without copying or moving files:
+
+```bash
+python3 scripts/batlit_route_pdfs.py
+```
+
+Preview routing including known duplicates:
+
+```bash
+python3 scripts/batlit_route_pdfs.py --include-duplicates
+```
+
+Copy candidate new literature into `processed/new_literature/` while leaving `incoming/` untouched:
+
+```bash
+python3 scripts/batlit_route_pdfs.py --copy
+```
+
+Copy both candidate new literature and known duplicates:
+
+```bash
+python3 scripts/batlit_route_pdfs.py --copy --include-duplicates
+```
+
+The router writes:
+
+```text
+reports/routing_report.csv
+```
+
+Prefer `--copy` until the review workflow is mature. The `--move` option exists, but should only be used after confirming the reports.
+
 ## Run DOI Context Report
 
 For a DOI-focused diagnostic report:
