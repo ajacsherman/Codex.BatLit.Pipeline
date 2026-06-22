@@ -140,13 +140,37 @@ Copy both candidate new literature and known duplicates:
 python3 scripts/batlit_route_pdfs.py --copy --include-duplicates
 ```
 
+Copy both candidate new literature and known duplicates using `FirstAuthorLastName, Year.pdf` filenames:
+
+```bash
+python3 scripts/batlit_route_pdfs.py --copy --include-duplicates --rename-citation
+```
+
 The router writes:
 
 ```text
 reports/routing_report.csv
+reports/YYYYMMDD_HHMMSS_routing_report.csv
 ```
 
 Prefer `--copy` until the review workflow is mature. The `--move` option exists, but should only be used after confirming the reports.
+
+## Report Failed Metadata Extraction
+
+Create a CSV of PDFs needing better OCR, metadata cleanup, or manual citation search:
+
+```bash
+python3 scripts/batlit_failed_metadata_report.py
+```
+
+The script writes:
+
+```text
+processed/failed_processing/metadata_failed_processing.csv
+processed/failed_processing/YYYYMMDD_HHMMSS_metadata_failed_processing.csv
+```
+
+Rows are flagged when title, author, year, or text extraction looks missing or suspicious.
 
 ## Run DOI Context Report
 
