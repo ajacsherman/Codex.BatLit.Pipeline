@@ -28,6 +28,18 @@ def normalize_doi(value):
     return clean_doi(value)
 
 
+def normalize_text(value):
+    value = (value or "").casefold()
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def author_tokens(value):
+    normalized = normalize_text(value)
+    stop = {"and", "the", "of", "jr", "ii", "iii", "iv"}
+    return {token for token in normalized.split() if len(token) > 2 and token not in stop}
+
+
 def file_hashes(path):
     md5 = hashlib.md5()
     sha256 = hashlib.sha256()
@@ -74,6 +86,7 @@ def pdf_page_count(pdf_path):
 def load_batlit_refs(refs_path):
     by_doi = {}
     by_md5 = {}
+    by_title = {}
     rows = 0
 
     if not refs_path.exists():
@@ -92,7 +105,11 @@ def load_batlit_refs(refs_path):
             if md5_match:
                 by_md5.setdefault(md5_match.group(1).lower(), []).append(row)
 
-    return by_doi, by_md5, rows
+            title_key = normalize_text(row.get("title"))
+            if title_key:
+                by_title.setdefault(title_key, []).append(row)
+
+    return by_doi, by_md5, by_title, rows
 
 
 def plausible_title_and_authors(first_page_text):
@@ -142,11 +159,39 @@ def summarize_batlit_match(rows):
     )
 
 
-def decide(hash_matches, own_doi_matches, text_error):
+def year_from_date(value):
+    match = YEAR_RE.search(value or "")
+    return match.group(0) if match else ""
+
+
+def likely_title_matches(title, authors, year, refs_by_title):
+    title_key = normalize_text(title)
+    if not title_key:
+        return []
+
+    matches = refs_by_title.get(title_key, [])
+    if not matches:
+        return []
+
+    incoming_authors = author_tokens(authors)
+    filtered = []
+    for match in matches:
+        ref_year = year_from_date(match.get("date"))
+        year_ok = not year or not ref_year or year == ref_year
+        ref_authors = author_tokens(match.get("authors"))
+        author_ok = not incoming_authors or not ref_authors or bool(incoming_authors & ref_authors)
+        if year_ok and author_ok:
+            filtered.append(match)
+    return filtered
+
+
+def decide(hash_matches, own_doi_matches, title_matches, text_error):
     if hash_matches:
         return "duplicate", "exact_md5_hash_match"
     if own_doi_matches:
         return "duplicate", "front_matter_doi_match"
+    if title_matches:
+        return "likely_duplicate", "exact_title_author_year_match"
     if text_error:
         return "manual_review", "text_extraction_failed"
     return "new_literature", "no_hash_or_front_matter_doi_match"
@@ -188,7 +233,7 @@ def main():
     reports_dir.mkdir(parents=True, exist_ok=True)
     text_dir.mkdir(parents=True, exist_ok=True)
 
-    refs_by_doi, refs_by_md5, ref_count = load_batlit_refs(refs_path)
+    refs_by_doi, refs_by_md5, refs_by_title, ref_count = load_batlit_refs(refs_path)
     pdfs = find_pdfs(incoming_dir)
     if args.limit is not None:
         pdfs = pdfs[: args.limit]
@@ -234,8 +279,9 @@ def main():
         for doi in front_matter_dois:
             own_doi_matches.extend(refs_by_doi.get(doi, []))
 
-        decision, decision_reason = decide(hash_matches, own_doi_matches, text_error)
-        match_rows = hash_matches or own_doi_matches
+        title_matches = likely_title_matches(title, authors, year, refs_by_title)
+        decision, decision_reason = decide(hash_matches, own_doi_matches, title_matches, text_error)
+        match_rows = hash_matches or own_doi_matches or title_matches
         (
             batlit_title,
             batlit_authors,

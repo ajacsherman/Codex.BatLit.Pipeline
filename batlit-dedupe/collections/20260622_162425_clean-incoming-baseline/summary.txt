@@ -1,0 +1,18 @@
+Collection: 20260622_162425_clean-incoming-baseline
+Generated: 2026-06-22T16:26:40
+Incoming folder: /mnt/c/Users/Aja/Dropbox (Personal)/Bat Co-roosting Project/Bat Lit Proj/Codex.BatLit.Pipeline/batlit-dedupe/incoming
+Previous manifest: none
+
+Current PDFs: 3503
+Unique current MD5 hashes: 3461
+Added since previous manifest: 3503
+Removed since previous manifest: 0
+Unchanged since previous manifest: 0
+Files sharing a duplicate MD5 within this collection: 84
+
+Files:
+  incoming_manifest.csv
+  diff_added.csv
+  diff_removed.csv
+  diff_unchanged.csv
+  duplicates_within_collection.csv

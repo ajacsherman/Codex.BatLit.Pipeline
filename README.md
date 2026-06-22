@@ -19,6 +19,7 @@ Fuzzy citation matching, OCR, and Bat relevance screening are planned next steps
 
 ```text
 batlit-dedupe/
+  collections/           Timestamped incoming-batch manifests and diffs
   index/                 BatLit reference indexes, such as refs.csv
   incoming/              PDFs waiting for screening
   processed/
@@ -31,7 +32,54 @@ batlit-dedupe/
   reports/               CSV/RIS review outputs
   scripts/               Reusable pipeline scripts
   work/                  Extracted text and intermediate files
+  zotero_diffs/           Timestamped before/after Zotero collection diffs
 ```
+
+## Snapshot a Newly Added Collection
+
+Run this immediately after dropping a new batch of PDFs into `incoming/`:
+
+```bash
+python3 scripts/batlit_collection_diff.py --label "short collection name"
+```
+
+The script creates a timestamped folder:
+
+```text
+collections/YYYYMMDD_HHMMSS_short-collection-name/
+  incoming_manifest.csv
+  diff_added.csv
+  diff_removed.csv
+  diff_unchanged.csv
+  summary.txt
+```
+
+These files are the durable batch ledger. They should stay in Git even after PDFs are routed, archived, deposited on Zenodo, or retired from workflow folders.
+
+## Diff Zotero Before And After Import
+
+Before adding a deduplicated collection to Zotero, export the target Zotero collection to CSV. After import and metadata review, export it again. Then run:
+
+```bash
+python3 scripts/batlit_zotero_collection_diff.py \
+  --before path/to/zotero_before.csv \
+  --after path/to/zotero_after.csv \
+  --label "collection import name"
+```
+
+The script creates:
+
+```text
+zotero_diffs/YYYYMMDD_HHMMSS_collection-import-name/
+  zotero_collection_diff.csv
+  added.csv
+  removed.csv
+  changed.csv
+  unchanged.csv
+  summary.txt
+```
+
+This gives us a durable before/after audit trail for Zotero itself, separate from the PDF batch diff.
 
 ## Run Full Dedupe Screening
 
