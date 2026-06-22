@@ -1,0 +1,31 @@
+# Local PDFs and derived document artifacts
+batlit-dedupe/incoming/*
+batlit-dedupe/processed/**/*
+batlit-dedupe/work/**/*
+batlit-dedupe/reports/**/*
+
+# Keep folder structure
+!batlit-dedupe/incoming/.gitkeep
+!batlit-dedupe/processed/
+!batlit-dedupe/processed/**/
+!batlit-dedupe/processed/duplicates/.gitkeep
+!batlit-dedupe/processed/likely_duplicates/.gitkeep
+!batlit-dedupe/processed/new_literature/.gitkeep
+!batlit-dedupe/processed/manual_review/.gitkeep
+!batlit-dedupe/processed/non_bat_review/.gitkeep
+!batlit-dedupe/processed/failed_processing/.gitkeep
+!batlit-dedupe/work/.gitkeep
+!batlit-dedupe/reports/.gitkeep
+
+# BatLit index can be regenerated
+batlit-dedupe/index/refs.csv
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
