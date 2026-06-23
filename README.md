@@ -241,6 +241,34 @@ processed_runs/20260623_132514_Bates_2026/Deduplicated_likely_duplicates/
 
 `Deduplicated_new_literature/` contains new Zotero candidates after confirmed duplicates have been omitted. `Deduplicated_likely_duplicates/` contains possible duplicates that should be reviewed manually before import. Each folder receives `deduplicated_review_manifest.csv`, and the run folder receives a combined `deduplicated_review_manifest.csv`.
 
+## Extract Cited References For Citation Network Review
+
+To seed a citation network or create a track-down spreadsheet for cited literature:
+
+```bash
+python3 scripts/batlit_extract_cited_references.py \
+  --run-folder "YYYYMMDD_HHMMSS_batch-label"
+```
+
+By default, this scans:
+
+```text
+Deduplicated_new_literature/
+Deduplicated_likely_duplicates/
+```
+
+The script writes:
+
+```text
+citation_network/YYYYMMDD_HHMMSS_batch-label/cited_reference_candidates.csv
+citation_network/YYYYMMDD_HHMMSS_batch-label/citation_edges.csv
+citation_network/YYYYMMDD_HHMMSS_batch-label/summary.txt
+```
+
+`cited_reference_candidates.csv` is the human review spreadsheet. It includes source PDF, reference text, DOI, URL, year, guessed authors, guessed title, and a reference key. `citation_edges.csv` is a lightweight network edge list from each source PDF to each cited reference key.
+
+The next enrichment layer should resolve citation candidates through DOI/title services and download only clearly open-access PDFs or files obtained through explicit user/library authorization. Paywalled PDFs should be listed with candidate links for manual retrieval through an authorized library/VPN workflow.
+
 ## Report Failed Metadata Extraction
 
 Create a CSV of PDFs needing better OCR, metadata cleanup, or manual citation search:

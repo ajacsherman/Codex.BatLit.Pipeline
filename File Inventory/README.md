@@ -24,6 +24,7 @@ This folder is a human-readable guide to the BatLit pipeline project structure. 
 | `work/` | Cached extracted text and intermediate files used by scripts. These are reproducible working files, not final review outputs. |
 | `collections/` | Timestamped manifests and diffs for incoming batches, used to record what changed when a new collection was added. |
 | `zotero_diffs/` | Before/after Zotero collection comparison outputs, used after deduplicated items are added to Zotero. |
+| `citation_network/` | Optional downstream citation-network outputs, including cited-reference candidate spreadsheets and edge lists extracted from routed PDFs. |
 | `processed/` | Older active/mixed processed folders. Prefer `processed_runs/` for clean timestamped review outputs. |
 | `processed_runs/` | Clean timestamped routing outputs. Each run keeps its own duplicates, likely duplicates, new literature, manual review, and non-bat review folders. |
 | `collection_tracking/` | Collection-level action logs and summaries that record what happened to each file in a named collection. |
@@ -65,6 +66,7 @@ This folder is a human-readable guide to the BatLit pipeline project structure. 
 | `scripts/batlit_collection_action_log.py` | Creates the collection-level action log and summary for a named collection such as Bates 2026. |
 | `scripts/batlit_embed_pdf_metadata.py` | Embeds routed bibliography metadata into PDF document info fields for Zotero-friendly import. |
 | `scripts/batlit_failed_metadata_report.py` | Reports PDFs with missing/suspicious title, author, year, or text extraction results. |
+| `scripts/batlit_extract_cited_references.py` | Extracts cited-reference candidates from routed PDFs and writes a track-down spreadsheet plus citation edge list. |
 | `scripts/batlit_doi_report.py` | Produces DOI-focused diagnostics for extracted DOI candidates. |
 | `scripts/batlit_make_zotero_ris.py` | Creates a Zotero RIS staging file for candidate new literature. |
 | `scripts/batlit_zotero_collection_diff.py` | Compares before/after Zotero collection exports and writes added/removed/changed/unchanged reports. |

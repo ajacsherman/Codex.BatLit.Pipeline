@@ -12,6 +12,7 @@ batlit-dedupe/reports/,folder,Latest and timestamped CSV/RIS reports produced by
 batlit-dedupe/work/,folder,Cached extracted text and intermediate files used by scripts. These are reproducible working files not final review outputs.
 batlit-dedupe/collections/,folder,Timestamped manifests and diffs for incoming batches used to record what changed when a new collection was added.
 batlit-dedupe/zotero_diffs/,folder,Before/after Zotero collection comparison outputs used after deduplicated items are added to Zotero.
+batlit-dedupe/citation_network/,folder,Optional downstream citation-network outputs including cited-reference candidate spreadsheets and edge lists extracted from routed PDFs.
 batlit-dedupe/processed/,folder,Older active/mixed processed folders. Prefer processed_runs/ for clean timestamped review outputs.
 batlit-dedupe/processed_runs/,folder,Clean timestamped routing outputs. Each run keeps its own duplicates likely duplicates new literature manual review and non-bat review folders.
 batlit-dedupe/collection_tracking/,folder,Collection-level action logs and summaries that record what happened to each file in a named collection.
@@ -37,6 +38,7 @@ batlit-dedupe/scripts/batlit_create_deduplicated_review_sets.py,file,Creates dup
 batlit-dedupe/scripts/batlit_collection_action_log.py,file,Creates the collection-level action log and summary for a named collection such as Bates 2026.
 batlit-dedupe/scripts/batlit_embed_pdf_metadata.py,file,Embeds routed bibliography metadata into PDF document info fields for Zotero-friendly import.
 batlit-dedupe/scripts/batlit_failed_metadata_report.py,file,Reports PDFs with missing or suspicious title author year or text extraction results.
+batlit-dedupe/scripts/batlit_extract_cited_references.py,file,Extracts cited-reference candidates from routed PDFs and writes a track-down spreadsheet plus citation edge list.
 batlit-dedupe/scripts/batlit_doi_report.py,file,Produces DOI-focused diagnostics for extracted DOI candidates.
 batlit-dedupe/scripts/batlit_make_zotero_ris.py,file,Creates a Zotero RIS staging file for candidate new literature.
 batlit-dedupe/scripts/batlit_zotero_collection_diff.py,file,Compares before/after Zotero collection exports and writes added removed changed and unchanged reports.

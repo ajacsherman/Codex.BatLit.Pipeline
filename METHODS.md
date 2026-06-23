@@ -34,3 +34,8 @@ After routing, bibliography metadata is embedded into the routed PDF copies usin
 
 The pipeline writes CSV and XLSX bibliographies for each routed folder, collection-level action logs, routing reports, dedupe reports, metadata embedding reports, and timestamped manifests. These files preserve the decisions made for each PDF and allow later reconstruction of what was added, excluded, or sent to manual review.
 
+## Citation Network Seed Extraction
+
+A citation-network phase was added as an optional downstream step. The workflow scans duplicate-omitted review sets, extracts full text, identifies the cited-reference section using common headings such as `References`, `Literature cited`, and `Bibliography`, and splits that section into candidate reference strings. For each cited reference, the script records the source PDF, reference text, DOI when present, URL when present, year, guessed authors, guessed title, and a stable reference key. A separate edge-list file records source PDF to cited-reference relationships for network analysis.
+
+This phase is intended first as a track-down and network-building aid. Automated downloading should be limited to clearly open-access PDFs or files explicitly obtained through authorized user or library access. Paywalled literature should be recorded as DOI/URL/title candidates for manual retrieval through the user's museum library VPN or other authorized access route.
