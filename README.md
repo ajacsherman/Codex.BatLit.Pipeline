@@ -2,6 +2,8 @@
 
 This project is a pre-Zotero screening workflow for incoming literature PDFs. The goal is to inspect incoming PDFs before Zotero import, compare them against the BatLit corpus, and route each item into a clear review category.
 
+For a fresh clone or a new user, start with `QUICKSTART.md`.
+
 ## Current Workflow
 
 The current workflow screens PDFs in `batlit-dedupe/incoming/` against BatLit's published `refs.csv` index. It computes file hashes, extracts first-page and first-three-page text, detects front-matter DOI candidates, compares DOI and MD5 hashes against BatLit, and writes review reports.
@@ -54,6 +56,20 @@ index/YYYYMMDD_HHMMSS_literature_fingerprint_index.csv
 
 The index includes DOI, alternative DOI, title, normalized title, authors, first author, year, journal fields, Zotero item URLs, attachment identifiers, extracted MD5 hashes where available, and placeholder columns for future corpus-side page counts and text fingerprints.
 
+## Portable One-Command Run
+
+After installing Python 3 and Poppler, initializing folders, adding `index/refs.csv`, and placing PDFs in `incoming/`, a user can run a complete collection workflow from inside `batlit-dedupe/`:
+
+```bash
+python3 scripts/batlit_run_collection.py --collection-name "Collection Name"
+```
+
+To initialize/check a fresh workspace:
+
+```bash
+python3 scripts/batlit_setup_project.py
+```
+
 ## Snapshot a Newly Added Collection
 
 Run this immediately after dropping a new batch of PDFs into `incoming/`:
@@ -102,10 +118,9 @@ This gives us a durable before/after audit trail for Zotero itself, separate fro
 
 ## Run Full Dedupe Screening
 
-From WSL:
+From inside `batlit-dedupe/`:
 
 ```bash
-cd "/mnt/c/Users/Aja/Dropbox (Personal)/Bat Co-roosting Project/Bat Lit Proj/Codex.BatLit.Pipeline/batlit-dedupe"
 python3 scripts/batlit_dedupe_workflow.py
 ```
 
