@@ -163,6 +163,7 @@ def main():
         help="Comma-separated folders inside the run folder to scan.",
     )
     parser.add_argument("--limit", type=int, default=None, help="Process only the first N PDFs for testing.")
+    parser.add_argument("--checkpoint-every", type=int, default=25, help="Write partial CSV outputs every N PDFs.")
     parser.add_argument("--force-text", action="store_true", help="Refresh cached full text.")
     args = parser.parse_args()
 
@@ -177,6 +178,23 @@ def main():
     seen_reference_keys = {}
     folders = [folder.strip() for folder in args.folders.split(",") if folder.strip()]
     pdfs_to_scan = []
+    fields = [
+        "extraction_timestamp",
+        "source_pdf",
+        "source_folder",
+        "reference_number",
+        "reference_key",
+        "reference_text",
+        "doi",
+        "url",
+        "year",
+        "guessed_authors",
+        "guessed_title",
+        "deduplicated_reference_count",
+        "status",
+        "error",
+    ]
+    edge_fields = ["source_pdf", "cited_reference_key", "cited_doi", "cited_year", "cited_title_guess"]
 
     for folder in folders:
         folder_path = run_dir / folder
@@ -188,7 +206,7 @@ def main():
     if args.limit is not None:
         pdfs_to_scan = pdfs_to_scan[: args.limit]
 
-    for folder, pdf_path in pdfs_to_scan:
+    for processed_count, (folder, pdf_path) in enumerate(pdfs_to_scan, start=1):
         rel_pdf = pdf_path.relative_to(run_dir).as_posix()
         text_path = (text_dir / folder / safe_name(pdf_path)).with_suffix(".txt")
         try:
@@ -250,28 +268,24 @@ def main():
                 "cited_title_guess": row["guessed_title"],
             })
 
+        if args.checkpoint_every and processed_count % args.checkpoint_every == 0:
+            write_csv(output_dir / "cited_reference_candidates.partial.csv", fields, rows)
+            write_csv(output_dir / "citation_edges.partial.csv", edge_fields, edge_rows)
+            (output_dir / "RUNNING.txt").write_text(
+                "\n".join([
+                    f"Started: {stamp}",
+                    f"Last checkpoint: {datetime.now().isoformat(timespec='seconds')}",
+                    f"Processed PDFs: {processed_count} / {len(pdfs_to_scan)}",
+                    f"Reference rows so far: {len([row for row in rows if row['status'] == 'extracted'])}",
+                    "Final files will be written as cited_reference_candidates.csv and citation_edges.csv.",
+                ]) + "\n",
+                encoding="utf-8",
+            )
+
     for row in rows:
         key = row.get("reference_key")
         if key:
             row["deduplicated_reference_count"] = len(seen_reference_keys.get(key, set()))
-
-    fields = [
-        "extraction_timestamp",
-        "source_pdf",
-        "source_folder",
-        "reference_number",
-        "reference_key",
-        "reference_text",
-        "doi",
-        "url",
-        "year",
-        "guessed_authors",
-        "guessed_title",
-        "deduplicated_reference_count",
-        "status",
-        "error",
-    ]
-    edge_fields = ["source_pdf", "cited_reference_key", "cited_doi", "cited_year", "cited_title_guess"]
 
     write_csv(output_dir / "cited_reference_candidates.csv", fields, rows)
     write_csv(output_dir / f"{stamp}_cited_reference_candidates.csv", fields, rows)
