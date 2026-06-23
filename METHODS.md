@@ -1,0 +1,36 @@
+# Running Methods: BatLit Pre-Zotero Deduplication Pipeline
+
+This document records the evolving methods used to screen incoming literature collections before Zotero ingestion.
+
+## Current Collection
+
+The current test collection is labeled `Bates 2026`, a set of PDFs shared by Paul Bates in 2026 and placed in `batlit-dedupe/incoming/`.
+
+## Corpus Indexing
+
+We built a lightweight BatLit literature fingerprint index from the BatLit reference export `index/refs.csv`. The index is stored independently of Zotero as `index/literature_fingerprint_index.csv` with timestamped archival copies. For each BatLit record, the index stores DOI, alternative DOI, title, normalized title, authors, normalized authors, first author, year, journal and publication fields, Zotero item URL, attachment identifiers, and extracted MD5 hashes where available. Placeholder columns are retained for future corpus-side page counts and first-page or first-three-page text fingerprints.
+
+## Incoming PDF Screening
+
+Incoming PDFs are screened before Zotero import. The workflow computes MD5 and SHA256 hashes, extracts page count with `pdfinfo`, extracts text with `pdftotext`, and uses the first page to infer title, authors, and year. DOI candidates are extracted from the first three pages. Full extracted text is also scanned for bat-relevance terms, including `bat`, `bats`, and `chiroptera`, and for non-bat context terms.
+
+## Duplicate Classification
+
+Incoming PDFs are first compared with the BatLit corpus using exact MD5 hash matches, DOI matches from front matter, and normalized title/author/year matches. The workflow also compares PDFs within the current incoming batch using the same evidence classes. Exact hash and DOI matches are treated as confirmed duplicates. Title/author/year matches are treated as likely duplicates for manual review. The report records whether a match came from the BatLit corpus or from the current incoming batch.
+
+## Routing
+
+After screening, files are copied into timestamped `processed_runs/` folders. Confirmed duplicates are routed to `duplicates/`; high-confidence possible duplicates are routed to `likely_duplicates/`; new candidate literature is routed to `new_literature/`; and likely out-of-scope items are routed to `non_bat_review/`. For Bates 2026, no files had text-extraction errors and no `failed_processing/` folder was produced.
+
+## Duplicate-Omitted Review Sets
+
+For Bates 2026, confirmed duplicates were omitted from the next-stage review folders. The folder `Deduplicated_new_literature/` contains candidate new literature for metadata review and Zotero ingestion. The folder `Deduplicated_likely_duplicates/` contains possible duplicates that should be reviewed manually before any Zotero import. Manifests are written inside each folder and as a combined run-level manifest.
+
+## Metadata Embedding
+
+After routing, bibliography metadata is embedded into the routed PDF copies using PDF document information fields. Embedded fields include title, author, DOI, year, BatLit decision, decision reason, original filename, hashes, and Zotero/BatLit match identifiers where available. This step is intended to make the routed PDFs easier to inspect and import into Zotero while preserving separate CSV/XLSX audit records.
+
+## Audit Outputs
+
+The pipeline writes CSV and XLSX bibliographies for each routed folder, collection-level action logs, routing reports, dedupe reports, metadata embedding reports, and timestamped manifests. These files preserve the decisions made for each PDF and allow later reconstruction of what was added, excluded, or sent to manual review.
+

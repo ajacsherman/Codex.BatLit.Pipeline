@@ -13,7 +13,7 @@ exact MD5 attachment hash matches
 front-matter DOI matches
 ```
 
-Fuzzy citation matching, OCR, and Bat relevance screening are planned next steps.
+The workflow also checks for duplicates inside the current incoming batch using exact MD5 matches, front-matter DOI matches, and title/author/year matches.
 The workflow also performs a conservative full-text bat relevance scan: PDFs with no obvious `bat`, `bats`, or `chiroptera` terms and with non-bat taxon/context terms are routed to `non_bat_review`.
 
 ## Folder Layout
@@ -36,6 +36,23 @@ batlit-dedupe/
   work/                  Extracted text and intermediate files
   zotero_diffs/           Timestamped before/after Zotero collection diffs
 ```
+
+## Build The Literature Fingerprint Index
+
+The pipeline maintains a lightweight fingerprint index independent of Zotero itself. It is built from the BatLit reference export and can be checked before importing incoming PDFs into Zotero.
+
+```bash
+python3 scripts/batlit_build_fingerprint_index.py
+```
+
+The script writes:
+
+```text
+index/literature_fingerprint_index.csv
+index/YYYYMMDD_HHMMSS_literature_fingerprint_index.csv
+```
+
+The index includes DOI, alternative DOI, title, normalized title, authors, first author, year, journal fields, Zotero item URLs, attachment identifiers, extracted MD5 hashes where available, and placeholder columns for future corpus-side page counts and text fingerprints.
 
 ## Snapshot a Newly Added Collection
 
@@ -190,6 +207,25 @@ reports/YYYYMMDD_HHMMSS_routing_report.csv
 
 Prefer `--copy` until the review workflow is mature. The `--move` option exists, but should only be used after confirming the reports.
 
+## Create Duplicate-Omitted Review Sets
+
+After routing a clean run, create review folders that omit confirmed duplicates:
+
+```bash
+python3 scripts/batlit_create_deduplicated_review_sets.py \
+  --run-folder "YYYYMMDD_HHMMSS_batch-label" \
+  --collection-name "Collection label"
+```
+
+For Bates 2026, this created:
+
+```text
+processed_runs/20260623_132514_Bates_2026/Deduplicated_new_literature/
+processed_runs/20260623_132514_Bates_2026/Deduplicated_likely_duplicates/
+```
+
+`Deduplicated_new_literature/` contains new Zotero candidates after confirmed duplicates have been omitted. `Deduplicated_likely_duplicates/` contains possible duplicates that should be reviewed manually before import. Each folder receives `deduplicated_review_manifest.csv`, and the run folder receives a combined `deduplicated_review_manifest.csv`.
+
 ## Report Failed Metadata Extraction
 
 Create a CSV of PDFs needing better OCR, metadata cleanup, or manual citation search:
@@ -228,6 +264,11 @@ This report is useful for distinguishing front-matter DOIs from DOI strings foun
 ```text
 decision              duplicate, new_literature, or manual_review
 decision_reason       reason for the decision
+batlit_match_scope    whether the match came from the BatLit corpus
+incoming_batch_duplicate_status  primary or duplicate inside the incoming batch
+incoming_batch_duplicate_reason  incoming-batch match basis
+incoming_batch_primary_file      selected primary file for an incoming-batch duplicate set
+incoming_batch_match_files       all files in the incoming-batch duplicate set
 file                  PDF filename from incoming/
 size_bytes            PDF size in bytes
 page_count            page count from pdfinfo

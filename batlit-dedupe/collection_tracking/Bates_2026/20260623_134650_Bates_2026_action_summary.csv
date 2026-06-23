@@ -1,0 +1,5 @@
+log_timestamp,project_name,collection_name,decision,routed_folder,action_taken,count
+20260623_134650,BatLit pre-Zotero deduplication pipeline,Bates 2026,duplicate,duplicates,copy_to_duplicates,544
+20260623_134650,BatLit pre-Zotero deduplication pipeline,Bates 2026,likely_duplicate,likely_duplicates,copy_to_likely_duplicates,93
+20260623_134650,BatLit pre-Zotero deduplication pipeline,Bates 2026,new_literature,new_literature,copy_to_new_literature,2472
+20260623_134650,BatLit pre-Zotero deduplication pipeline,Bates 2026,non_bat_review,non_bat_review,copy_to_non_bat_review,394

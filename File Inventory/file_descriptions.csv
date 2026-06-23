@@ -1,0 +1,42 @@
+path,type,description
+README.md,file,Main project overview and command guide for the pre-Zotero BatLit deduplication pipeline.
+.gitignore,file,Prevents local PDFs extracted text generated outputs and other large or private workflow artifacts from being committed accidentally.
+.github/,folder,GitHub project metadata and issue templates or workflows if added.
+issues/,folder,Local project planning notes and GitHub issue drafts or records.
+File Inventory/,folder,Human-readable descriptions of folders and files in this project. This is not a PDF-level manifest.
+batlit-dedupe/,folder,Main working directory for the BatLit pre-Zotero deduplication pipeline.
+batlit-dedupe/incoming/,folder,Drop zone for a newly supplied collection of PDFs before screening. Current collection is Bates 2026 shared by Paul Bates in 2026.
+batlit-dedupe/index/,folder,Lightweight comparison indexes used before Zotero import including BatLit reference exports such as refs.csv.
+batlit-dedupe/index/literature_fingerprint_index.csv,file,Lightweight BatLit fingerprint index used for pre-Zotero comparison. Includes DOI title authors year normalized fields Zotero links and available attachment MD5 hashes.
+batlit-dedupe/reports/,folder,Latest and timestamped CSV/RIS reports produced by dedupe routing DOI extraction metadata staging and related checks.
+batlit-dedupe/work/,folder,Cached extracted text and intermediate files used by scripts. These are reproducible working files not final review outputs.
+batlit-dedupe/collections/,folder,Timestamped manifests and diffs for incoming batches used to record what changed when a new collection was added.
+batlit-dedupe/zotero_diffs/,folder,Before/after Zotero collection comparison outputs used after deduplicated items are added to Zotero.
+batlit-dedupe/processed/,folder,Older active/mixed processed folders. Prefer processed_runs/ for clean timestamped review outputs.
+batlit-dedupe/processed_runs/,folder,Clean timestamped routing outputs. Each run keeps its own duplicates likely duplicates new literature manual review and non-bat review folders.
+batlit-dedupe/collection_tracking/,folder,Collection-level action logs and summaries that record what happened to each file in a named collection.
+batlit-dedupe/scripts/,folder,Reusable Python scripts that run the pipeline.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/duplicates/,folder,PDFs from Bates 2026 that matched the existing BatLit corpus or another item in the incoming batch by exact file hash or DOI. Do not import as new Zotero literature.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/likely_duplicates/,folder,PDFs from Bates 2026 that are high-confidence possible duplicates generally from title author and year matching. Human confirmation is needed before import.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/new_literature/,folder,PDFs from Bates 2026 that did not match BatLit or another incoming-batch item and passed the current bat-relevance screen. These are candidates for Zotero ingestion after metadata review.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/Deduplicated_new_literature/,folder,Duplicate-omitted copy of Bates 2026 new_literature for next-stage metadata review and Zotero ingestion.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/non_bat_review/,folder,PDFs from Bates 2026 sorted out because extracted text did not show bat-relevance terms such as bat bats or chiroptera and/or showed non-bat context terms. Review for scope before import.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/Deduplicated_likely_duplicates/,folder,Duplicate-omitted Bates 2026 likely duplicate review set. These are possible duplicates that need manual confirmation before any Zotero import.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/manual_review/,folder,Ambiguous PDFs such as files with extraction failures or insufficient metadata that need a manual decision before import. May be absent or empty in a run.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/failed_processing/,folder,Files that could not be processed cleanly enough for routine routing and need better OCR repair or manual citation searching. May be absent or empty in a run.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/*/bibliography.csv,file,Category-specific bibliography and routing metadata for PDFs in that category folder.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/*/bibliography.xlsx,file,Excel version of the category-specific bibliography and routing metadata.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/metadata_embedding_report.csv,file,Report showing which routed PDFs had metadata embedded into PDF document info fields.
+batlit-dedupe/collection_tracking/Bates_2026/latest_action_log.csv,file,One row per Bates 2026 incoming PDF recording action taken routed folder duplicate reference decision reason metadata hashes and BatLit match fields.
+batlit-dedupe/collection_tracking/Bates_2026/latest_action_summary.csv,file,Compact summary of Bates 2026 decisions and routing actions.
+batlit-dedupe/scripts/batlit_collection_diff.py,file,Creates timestamped manifests and diffs when a new set of PDFs is added to incoming/.
+batlit-dedupe/scripts/batlit_build_fingerprint_index.py,file,Builds the lightweight BatLit literature fingerprint index from refs.csv for pre-Zotero comparison.
+batlit-dedupe/scripts/batlit_dedupe_workflow.py,file,Screens incoming PDFs against BatLit and the current incoming batch using hashes DOI extraction title author year matching and bat-relevance terms.
+batlit-dedupe/scripts/batlit_route_pdfs.py,file,Copies or moves screened PDFs into review folders and creates per-folder bibliography CSV/XLSX files.
+batlit-dedupe/scripts/batlit_create_deduplicated_review_sets.py,file,Creates duplicate-omitted new literature and likely duplicate review folders plus manifest CSVs for a processed run.
+batlit-dedupe/scripts/batlit_collection_action_log.py,file,Creates the collection-level action log and summary for a named collection such as Bates 2026.
+batlit-dedupe/scripts/batlit_embed_pdf_metadata.py,file,Embeds routed bibliography metadata into PDF document info fields for Zotero-friendly import.
+batlit-dedupe/scripts/batlit_failed_metadata_report.py,file,Reports PDFs with missing or suspicious title author year or text extraction results.
+batlit-dedupe/scripts/batlit_doi_report.py,file,Produces DOI-focused diagnostics for extracted DOI candidates.
+batlit-dedupe/scripts/batlit_make_zotero_ris.py,file,Creates a Zotero RIS staging file for candidate new literature.
+batlit-dedupe/scripts/batlit_zotero_collection_diff.py,file,Compares before/after Zotero collection exports and writes added removed changed and unchanged reports.
