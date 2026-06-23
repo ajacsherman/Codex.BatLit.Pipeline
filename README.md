@@ -170,6 +170,17 @@ processed_runs/YYYYMMDD_HHMMSS_batch-label/
   failed_processing/
 ```
 
+Each routed category folder also receives a bibliography in both CSV and Excel formats:
+
+```text
+bibliography.csv
+bibliography.xlsx
+YYYYMMDD_HHMMSS_bibliography.csv
+YYYYMMDD_HHMMSS_bibliography.xlsx
+```
+
+The bibliography includes routed filename, original filename, decision, reason, title, authors, year, DOI, hashes, BatLit match fields, and bat-relevance fields.
+
 The router writes:
 
 ```text

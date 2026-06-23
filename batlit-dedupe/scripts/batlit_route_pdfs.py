@@ -3,9 +3,11 @@ import argparse
 import csv
 import re
 import shutil
+import zipfile
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 
 DECISION_TO_FOLDER = {
@@ -107,6 +109,144 @@ def citation_filename(row):
     return f"{author}, {year}.pdf"
 
 
+def display_title(row):
+    return row.get("batlit_title") or row.get("incoming_title") or ""
+
+
+def display_authors(row):
+    return row.get("batlit_authors") or row.get("incoming_authors") or ""
+
+
+def display_year(row):
+    return publication_year(row.get("batlit_year_or_date") or row.get("incoming_year_guess") or row.get("file") or "")
+
+
+def display_doi(row):
+    return (row.get("batlit_doi") or row.get("front_matter_dois") or "").split("|")[0].strip()
+
+
+def column_letter(index):
+    result = ""
+    while index:
+        index, remainder = divmod(index - 1, 26)
+        result = chr(65 + remainder) + result
+    return result
+
+
+def xlsx_cell(value, row_index, col_index):
+    ref = f"{column_letter(col_index)}{row_index}"
+    text = escape(str(value or ""))
+    return f'<c r="{ref}" t="inlineStr"><is><t>{text}</t></is></c>'
+
+
+def write_simple_xlsx(path, fieldnames, rows, sheet_name="Bibliography"):
+    sheet_rows = []
+    all_rows = [dict(zip(fieldnames, fieldnames))] + rows
+    for row_index, row in enumerate(all_rows, start=1):
+        cells = [xlsx_cell(row.get(field, ""), row_index, col_index) for col_index, field in enumerate(fieldnames, start=1)]
+        sheet_rows.append(f'<row r="{row_index}">{"".join(cells)}</row>')
+
+    worksheet = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>
+    {''.join(sheet_rows)}
+  </sheetData>
+</worksheet>'''
+    workbook = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="{escape(sheet_name)}" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>'''
+    rels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>'''
+    workbook_rels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>'''
+    content_types = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>'''
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("_rels/.rels", rels)
+        archive.writestr("xl/workbook.xml", workbook)
+        archive.writestr("xl/_rels/workbook.xml.rels", workbook_rels)
+        archive.writestr("xl/worksheets/sheet1.xml", worksheet)
+
+
+def write_bibliographies(processed_dir, rows_out, stamp):
+    bib_fields = [
+        "routed_filename",
+        "original_file",
+        "decision",
+        "decision_reason",
+        "title",
+        "authors",
+        "year",
+        "doi",
+        "md5",
+        "sha256",
+        "bat_relevance_status",
+        "bat_relevance_reason",
+        "batlit_title",
+        "batlit_authors",
+        "batlit_year_or_date",
+        "batlit_doi",
+        "batlit_zotero_id",
+        "batlit_attachment_id",
+        "destination",
+    ]
+    folders = sorted({row["routed_folder"] for row in rows_out if row.get("destination") and row.get("status") in {"copy", "move"}})
+    written = []
+    for folder_name in folders:
+        folder = processed_dir / folder_name
+        folder_rows = []
+        for row in rows_out:
+            if row.get("routed_folder") != folder_name or row.get("status") not in {"copy", "move"}:
+                continue
+            folder_rows.append({
+                "routed_filename": row.get("routed_filename", ""),
+                "original_file": row.get("file", ""),
+                "decision": row.get("decision", ""),
+                "decision_reason": row.get("decision_reason", ""),
+                "title": row.get("title", ""),
+                "authors": row.get("authors", ""),
+                "year": row.get("year", ""),
+                "doi": row.get("doi", ""),
+                "md5": row.get("md5", ""),
+                "sha256": row.get("sha256", ""),
+                "bat_relevance_status": row.get("bat_relevance_status", ""),
+                "bat_relevance_reason": row.get("bat_relevance_reason", ""),
+                "batlit_title": row.get("batlit_title", ""),
+                "batlit_authors": row.get("batlit_authors", ""),
+                "batlit_year_or_date": row.get("batlit_year_or_date", ""),
+                "batlit_doi": row.get("batlit_doi", ""),
+                "batlit_zotero_id": row.get("batlit_zotero_id", ""),
+                "batlit_attachment_id": row.get("batlit_attachment_id", ""),
+                "destination": row.get("destination", ""),
+            })
+
+        csv_paths = [folder / "bibliography.csv", folder / f"{stamp}_bibliography.csv"]
+        xlsx_paths = [folder / "bibliography.xlsx", folder / f"{stamp}_bibliography.xlsx"]
+        for csv_path in csv_paths:
+            with csv_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=bib_fields)
+                writer.writeheader()
+                writer.writerows(folder_rows)
+            written.append(csv_path)
+        for xlsx_path in xlsx_paths:
+            write_simple_xlsx(xlsx_path, bib_fields, folder_rows, sheet_name=folder_name[:31])
+            written.append(xlsx_path)
+    return written
+
+
 def main():
     parser = argparse.ArgumentParser(description="Route incoming PDFs into processed review folders.")
     parser.add_argument("--base", default=".", help="batlit-dedupe folder; defaults to current directory")
@@ -172,10 +312,24 @@ def main():
                 "routed_folder": routed_folder,
                 "destination": destination,
                 "routed_filename": Path(destination).name if destination else "",
+                "title": display_title(row),
+                "authors": display_authors(row),
+                "year": display_year(row),
+                "doi": display_doi(row),
                 "md5": row.get("md5", ""),
+                "sha256": row.get("sha256", ""),
                 "incoming_title": row.get("incoming_title", ""),
+                "incoming_authors": row.get("incoming_authors", ""),
+                "incoming_year_guess": row.get("incoming_year_guess", ""),
                 "front_matter_dois": row.get("front_matter_dois", ""),
                 "batlit_title": row.get("batlit_title", ""),
+                "batlit_authors": row.get("batlit_authors", ""),
+                "batlit_year_or_date": row.get("batlit_year_or_date", ""),
+                "batlit_doi": row.get("batlit_doi", ""),
+                "batlit_zotero_id": row.get("batlit_zotero_id", ""),
+                "batlit_attachment_id": row.get("batlit_attachment_id", ""),
+                "bat_relevance_status": row.get("bat_relevance_status", ""),
+                "bat_relevance_reason": row.get("bat_relevance_reason", ""),
             })
 
     fieldnames = [
@@ -187,10 +341,24 @@ def main():
             "routed_folder",
             "destination",
             "routed_filename",
+            "title",
+            "authors",
+            "year",
+            "doi",
             "md5",
+            "sha256",
             "incoming_title",
+            "incoming_authors",
+            "incoming_year_guess",
             "front_matter_dois",
             "batlit_title",
+            "batlit_authors",
+            "batlit_year_or_date",
+            "batlit_doi",
+            "batlit_zotero_id",
+            "batlit_attachment_id",
+            "bat_relevance_status",
+            "bat_relevance_reason",
     ]
     routing_report_path.parent.mkdir(parents=True, exist_ok=True)
     with routing_report_path.open("w", newline="", encoding="utf-8") as handle:
@@ -205,9 +373,15 @@ def main():
         writer.writeheader()
         writer.writerows(rows_out)
 
+    bibliography_paths = []
+    if action in {"copy", "move"}:
+        bibliography_paths = write_bibliographies(processed_dir, rows_out, stamp)
+
     print(f"Routing action: {action}")
     print(f"Routing report: {routing_report_path}")
     print(f"Timestamped routing report: {timestamped_report_path}")
+    if bibliography_paths:
+        print(f"Bibliography files written: {len(bibliography_paths)}")
     for key, value in sorted(counts.items()):
         print(f"{key}: {value}")
 
