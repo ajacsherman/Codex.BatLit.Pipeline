@@ -238,6 +238,70 @@ def decide(hash_matches, own_doi_matches, title_matches, text_error, relevance_s
     return "new_literature", "no_hash_or_front_matter_doi_match"
 
 
+def add_incoming_batch_duplicate_flags(rows):
+    by_md5 = {}
+    by_doi = {}
+    by_title = {}
+
+    for row in rows:
+        row["incoming_batch_duplicate_status"] = ""
+        row["incoming_batch_duplicate_reason"] = ""
+        row["incoming_batch_primary_file"] = ""
+        row["incoming_batch_match_files"] = ""
+
+        md5 = row.get("md5")
+        if md5:
+            by_md5.setdefault(md5, []).append(row)
+
+        for doi in (row.get("front_matter_dois") or "").split("|"):
+            doi = normalize_doi(doi)
+            if doi:
+                by_doi.setdefault(doi, []).append(row)
+
+        title_key = normalize_text(row.get("incoming_title"))
+        if title_key:
+            author_key = " ".join(sorted(author_tokens(row.get("incoming_authors"))))
+            year_key = row.get("incoming_year_guess") or ""
+            by_title.setdefault((title_key, author_key, year_key), []).append(row)
+
+    def mark_group(group, reason):
+        if len(group) < 2:
+            return
+        ordered = sorted(group, key=lambda item: item.get("file", ""))
+        primary = ordered[0]
+        files = " | ".join(row.get("file", "") for row in ordered)
+        for row in ordered:
+            if row["incoming_batch_duplicate_status"]:
+                continue
+            row["incoming_batch_duplicate_status"] = (
+                "primary_in_batch" if row is primary else "duplicate_in_batch"
+            )
+            row["incoming_batch_duplicate_reason"] = reason
+            row["incoming_batch_primary_file"] = primary.get("file", "")
+            row["incoming_batch_match_files"] = files
+
+            if row is primary:
+                continue
+            if row.get("batlit_match_scope") == "batlit_corpus":
+                continue
+            if row.get("decision") not in {"new_literature", "manual_review", "non_bat_review"}:
+                continue
+            if reason in {"exact_md5_hash_match", "front_matter_doi_match"}:
+                row["decision"] = "duplicate"
+            else:
+                row["decision"] = "likely_duplicate"
+            row["decision_reason"] = f"incoming_batch_{reason}"
+
+    for groups in (by_md5, by_doi, by_title):
+        for group in groups.values():
+            if groups is by_title:
+                mark_group(group, "exact_title_author_year_match")
+            elif groups is by_doi:
+                mark_group(group, "front_matter_doi_match")
+            else:
+                mark_group(group, "exact_md5_hash_match")
+
+
 def write_csv(path, fieldnames, rows):
     try:
         handle = path.open("w", newline="", encoding="utf-8")
@@ -345,6 +409,7 @@ def main():
         dedupe_rows.append({
             "decision": decision,
             "decision_reason": decision_reason,
+            "batlit_match_scope": "batlit_corpus" if match_rows else "",
             "file": pdf_path.name,
             "size_bytes": size_bytes,
             "page_count": page_count,
@@ -366,12 +431,19 @@ def main():
             "text_error": text_error,
         })
 
-        if decision in {"new_literature", "manual_review"}:
+    add_incoming_batch_duplicate_flags(dedupe_rows)
+
+    for row in dedupe_rows:
+        if row["decision"] in {"new_literature", "manual_review"}:
+            front_matter_dois = [
+                normalize_doi(doi) for doi in (row.get("front_matter_dois") or "").split("|")
+                if normalize_doi(doi)
+            ]
             zotero_rows.append({
-                "filename": pdf_path.name,
-                "title": title,
-                "creators": authors,
-                "date": year,
+                "filename": row["file"],
+                "title": row.get("incoming_title", ""),
+                "creators": row.get("incoming_authors", ""),
+                "date": row.get("incoming_year_guess", ""),
                 "DOI": front_matter_dois[0] if front_matter_dois else "",
                 "itemType": "journalArticle",
                 "publicationTitle": "",
@@ -380,12 +452,17 @@ def main():
                 "issue": "",
                 "abstractNote": "",
                 "tags": "batlit-prezotero",
-                "notes": f"pre_zotero_decision={decision}; reason={decision_reason}; md5={md5}",
+                "notes": f"pre_zotero_decision={row['decision']}; reason={row['decision_reason']}; md5={row['md5']}",
             })
 
     dedupe_fields = [
         "decision",
         "decision_reason",
+        "batlit_match_scope",
+        "incoming_batch_duplicate_status",
+        "incoming_batch_duplicate_reason",
+        "incoming_batch_primary_file",
+        "incoming_batch_match_files",
         "file",
         "size_bytes",
         "page_count",
