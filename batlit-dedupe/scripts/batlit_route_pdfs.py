@@ -115,6 +115,7 @@ def main():
     parser.add_argument("--move", action="store_true", help="move files into processed folders")
     parser.add_argument("--include-duplicates", action="store_true", help="route duplicate files too")
     parser.add_argument("--rename-citation", action="store_true", help='rename routed PDFs as "FirstAuthorLastName, Year.pdf"')
+    parser.add_argument("--run-folder", default="", help="route into processed_runs/RUN_FOLDER instead of processed/")
     args = parser.parse_args()
 
     if args.copy and args.move:
@@ -122,7 +123,8 @@ def main():
 
     base = Path(args.base).resolve()
     incoming_dir = base / "incoming"
-    processed_dir = base / "processed"
+    run_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    processed_dir = base / "processed_runs" / (args.run_folder or run_stamp) if args.run_folder is not None and args.run_folder != "" else base / "processed"
     report_path = base / args.report
     routing_report_path = base / "reports" / "routing_report.csv"
 
@@ -196,7 +198,7 @@ def main():
         writer.writeheader()
         writer.writerows(rows_out)
 
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = run_stamp
     timestamped_report_path = routing_report_path.with_name(f"{stamp}_routing_report.csv")
     with timestamped_report_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)

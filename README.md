@@ -14,6 +14,7 @@ front-matter DOI matches
 ```
 
 Fuzzy citation matching, OCR, and Bat relevance screening are planned next steps.
+The workflow also performs a conservative full-text bat relevance scan: PDFs with no obvious `bat`, `bats`, or `chiroptera` terms and with non-bat taxon/context terms are routed to `non_bat_review`.
 
 ## Folder Layout
 
@@ -29,6 +30,7 @@ batlit-dedupe/
     manual_review/       Ambiguous or low-confidence cases
     non_bat_review/      Likely out-of-scope literature
     failed_processing/   Files that could not be processed
+  processed_runs/        Clean timestamped routed output folders
   reports/               CSV/RIS review outputs
   scripts/               Reusable pipeline scripts
   work/                  Extracted text and intermediate files
@@ -144,6 +146,28 @@ Copy both candidate new literature and known duplicates using `FirstAuthorLastNa
 
 ```bash
 python3 scripts/batlit_route_pdfs.py --copy --include-duplicates --rename-citation
+```
+
+Copy into a clean timestamped run folder instead of the mixed active `processed/` folders:
+
+```bash
+python3 scripts/batlit_route_pdfs.py \
+  --copy \
+  --include-duplicates \
+  --rename-citation \
+  --run-folder "YYYYMMDD_HHMMSS_batch-label"
+```
+
+This writes PDFs into:
+
+```text
+processed_runs/YYYYMMDD_HHMMSS_batch-label/
+  duplicates/
+  likely_duplicates/
+  new_literature/
+  non_bat_review/
+  manual_review/
+  failed_processing/
 ```
 
 The router writes:

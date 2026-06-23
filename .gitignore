@@ -1,6 +1,7 @@
 # Local PDFs and derived document artifacts
 batlit-dedupe/incoming/*
 batlit-dedupe/processed/**/*
+batlit-dedupe/processed_runs/**/*
 batlit-dedupe/work/**/*
 batlit-dedupe/reports/**/*
 
@@ -14,6 +15,8 @@ batlit-dedupe/reports/**/*
 !batlit-dedupe/processed/manual_review/.gitkeep
 !batlit-dedupe/processed/non_bat_review/.gitkeep
 !batlit-dedupe/processed/failed_processing/.gitkeep
+!batlit-dedupe/processed_runs/
+!batlit-dedupe/processed_runs/.gitkeep
 !batlit-dedupe/work/.gitkeep
 !batlit-dedupe/reports/.gitkeep
 

@@ -72,6 +72,12 @@ def pdftotext(pdf_path, out_path, first_page=None, last_page=None, timeout=90):
     return out_path.read_text(encoding="utf-8", errors="replace")
 
 
+def cached_pdftotext(pdf_path, out_path, first_page=None, last_page=None, timeout=90, force=False):
+    if force or not out_path.exists():
+        return pdftotext(pdf_path, out_path, first_page=first_page, last_page=last_page, timeout=timeout)
+    return out_path.read_text(encoding="utf-8", errors="replace")
+
+
 def pdf_page_count(pdf_path):
     try:
         result = run_command(["pdfinfo", str(pdf_path)], timeout=30)
@@ -185,7 +191,40 @@ def likely_title_matches(title, authors, year, refs_by_title):
     return filtered
 
 
-def decide(hash_matches, own_doi_matches, title_matches, text_error):
+BAT_TERMS = {
+    "bat", "bats", "chiroptera", "chiropteran", "chiropterans", "microbat", "microbats",
+    "pteropus", "rhinolophus", "hipposideros", "myotis", "pipistrellus",
+    "miniopterus", "eptesicus", "nyctalus", "tadarida", "molossus",
+    "artibeus", "carollia", "desmodus", "rousettus", "cynopterus",
+    "megachiroptera", "microchiroptera", "vespertilionidae",
+    "rhinolophidae", "pteropodidae", "molossidae", "phyllostomidae",
+}
+
+BAT_KEYWORD_RE = re.compile(r"\b(bat|bats|chiroptera|chiropteran|chiropterans|microbat|microbats)\b", re.IGNORECASE)
+
+NON_BAT_TERMS = {
+    "rodent", "rodents", "rodentia", "muridae", "murinae", "gerbillus",
+    "apodemus", "eliomys", "dormouse", "dormice", "squirrel", "squirrels",
+    "sciurus", "vole", "voles", "arvicola", "mouse", "mice", "rat", "rats",
+    "hyena", "hyaena", "fox", "cat", "felis", "marten", "badger", "carnivore",
+    "carnivora", "owl", "bird", "birds", "duck", "tourism",
+}
+
+
+def bat_relevance(text):
+    tokens = set(normalize_text(text).split())
+    bat_hits = sorted(tokens & BAT_TERMS)
+    non_bat_hits = sorted(tokens & NON_BAT_TERMS)
+    keyword_hits = sorted({match.group(0).casefold() for match in BAT_KEYWORD_RE.finditer(text or "")})
+    if bat_hits or keyword_hits:
+        hits = sorted(set(bat_hits) | set(keyword_hits))
+        return "bat_relevant", "bat_terms:" + "|".join(hits[:8])
+    if non_bat_hits:
+        return "likely_non_bat", "non_bat_terms:" + "|".join(non_bat_hits[:8])
+    return "unknown", ""
+
+
+def decide(hash_matches, own_doi_matches, title_matches, text_error, relevance_status):
     if hash_matches:
         return "duplicate", "exact_md5_hash_match"
     if own_doi_matches:
@@ -194,6 +233,8 @@ def decide(hash_matches, own_doi_matches, title_matches, text_error):
         return "likely_duplicate", "exact_title_author_year_match"
     if text_error:
         return "manual_review", "text_extraction_failed"
+    if relevance_status == "likely_non_bat":
+        return "non_bat_review", "likely_non_bat_terms"
     return "new_literature", "no_hash_or_front_matter_doi_match"
 
 
@@ -230,8 +271,10 @@ def main():
     refs_path = base / "index" / "refs.csv"
     reports_dir = base / "reports"
     text_dir = base / "work" / "text_first3"
+    full_text_dir = base / "work" / "text_full_keyword_scan"
     reports_dir.mkdir(parents=True, exist_ok=True)
     text_dir.mkdir(parents=True, exist_ok=True)
+    full_text_dir.mkdir(parents=True, exist_ok=True)
 
     refs_by_doi, refs_by_md5, refs_by_title, ref_count = load_batlit_refs(refs_path)
     pdfs = find_pdfs(incoming_dir)
@@ -256,21 +299,23 @@ def main():
         cache_base = text_dir / safe_name(pdf_path)
         first_page_path = cache_base.with_suffix(".page1.txt")
         first3_path = cache_base.with_suffix(".pages1-3.txt")
+        full_text_path = (full_text_dir / safe_name(pdf_path)).with_suffix(".full.txt")
         text_error = ""
 
         try:
-            if args.force_text or not first_page_path.exists():
-                first_page_text = pdftotext(pdf_path, first_page_path, first_page=1, last_page=1)
-            else:
-                first_page_text = first_page_path.read_text(encoding="utf-8", errors="replace")
-
-            if args.force_text or not first3_path.exists():
-                first3_text = pdftotext(pdf_path, first3_path, first_page=1, last_page=3)
-            else:
-                first3_text = first3_path.read_text(encoding="utf-8", errors="replace")
+            first_page_text = cached_pdftotext(
+                pdf_path, first_page_path, first_page=1, last_page=1, force=args.force_text
+            )
+            first3_text = cached_pdftotext(
+                pdf_path, first3_path, first_page=1, last_page=3, force=args.force_text
+            )
+            full_keyword_text = cached_pdftotext(
+                pdf_path, full_text_path, timeout=180, force=args.force_text
+            )
         except Exception as exc:
             first_page_text = ""
             first3_text = ""
+            full_keyword_text = ""
             text_error = f"{type(exc).__name__}: {exc}"
 
         title, authors, year = plausible_title_and_authors(first_page_text)
@@ -279,8 +324,14 @@ def main():
         for doi in front_matter_dois:
             own_doi_matches.extend(refs_by_doi.get(doi, []))
 
+        relevance_status, relevance_reason = bat_relevance(" ".join([
+            pdf_path.name,
+            title,
+            authors,
+            full_keyword_text,
+        ]))
         title_matches = likely_title_matches(title, authors, year, refs_by_title)
-        decision, decision_reason = decide(hash_matches, own_doi_matches, title_matches, text_error)
+        decision, decision_reason = decide(hash_matches, own_doi_matches, title_matches, text_error, relevance_status)
         match_rows = hash_matches or own_doi_matches or title_matches
         (
             batlit_title,
@@ -310,6 +361,8 @@ def main():
             "batlit_doi": batlit_doi,
             "batlit_zotero_id": batlit_zotero_id,
             "batlit_attachment_id": batlit_attachment_id,
+            "bat_relevance_status": relevance_status,
+            "bat_relevance_reason": relevance_reason,
             "text_error": text_error,
         })
 
@@ -349,6 +402,8 @@ def main():
         "batlit_doi",
         "batlit_zotero_id",
         "batlit_attachment_id",
+        "bat_relevance_status",
+        "bat_relevance_reason",
         "text_error",
     ]
     zotero_fields = [
