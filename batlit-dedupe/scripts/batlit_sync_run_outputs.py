@@ -135,7 +135,7 @@ def main():
 
     if args.make_upload_folder:
         source = run_dir / "new_literature"
-        upload = run_dir / f"{stamp}_enhanced_metadata_pdfs_for_zotero"
+        upload = run_dir / f"{stamp}_zotero_upload"
         copied = copy_pdfs(source, upload)
         for filename in ["bibliography.csv", "metadata_fallback_report.csv"]:
             copy_if_exists(source / filename, upload / filename)

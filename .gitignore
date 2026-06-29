@@ -4,6 +4,11 @@ batlit-dedupe/processed/**/*
 batlit-dedupe/processed_runs/**/*
 batlit-dedupe/work/**/*
 batlit-dedupe/reports/**/*
+batlit-dedupe/archive/**/*
+batlit-dedupe/citation_network/**/*
+batlit-dedupe/collection_tracking/**/*
+batlit-dedupe/collections/**/*
+batlit-dedupe/metadata_enrichment/**/*
 
 # Keep folder structure
 !batlit-dedupe/incoming/.gitkeep
@@ -19,6 +24,16 @@ batlit-dedupe/reports/**/*
 !batlit-dedupe/processed_runs/.gitkeep
 !batlit-dedupe/work/.gitkeep
 !batlit-dedupe/reports/.gitkeep
+!batlit-dedupe/archive/
+!batlit-dedupe/archive/.gitkeep
+!batlit-dedupe/citation_network/
+!batlit-dedupe/citation_network/.gitkeep
+!batlit-dedupe/collection_tracking/
+!batlit-dedupe/collection_tracking/.gitkeep
+!batlit-dedupe/collections/
+!batlit-dedupe/collections/.gitkeep
+!batlit-dedupe/metadata_enrichment/
+!batlit-dedupe/metadata_enrichment/.gitkeep
 
 # BatLit index can be regenerated
 batlit-dedupe/index/refs.csv

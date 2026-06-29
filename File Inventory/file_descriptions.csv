@@ -42,3 +42,10 @@ batlit-dedupe/scripts/batlit_extract_cited_references.py,file,Extracts cited-ref
 batlit-dedupe/scripts/batlit_doi_report.py,file,Produces DOI-focused diagnostics for extracted DOI candidates.
 batlit-dedupe/scripts/batlit_make_zotero_ris.py,file,Creates a Zotero RIS staging file for candidate new literature.
 batlit-dedupe/scripts/batlit_zotero_collection_diff.py,file,Compares before/after Zotero collection exports and writes added removed changed and unchanged reports.
+batlit-dedupe/processed_runs/20260629_111835_Bates_2026_rerun/,folder,Current clean Bates 2026 rerun created from the original incoming collection after dedupe routing metadata embedding curated fallback metadata and derived-folder synchronization.
+batlit-dedupe/processed_runs/20260629_111835_Bates_2026_rerun/20260629_114341_zotero_upload/,folder,Timestamped Zotero-ready upload folder containing only metadata-enhanced PDFs from new_literature after confirmed duplicates likely duplicates and non-bat review items were excluded.
+batlit-dedupe/processed_runs/20260629_111835_Bates_2026_rerun/Deduplicated_new_literature/,folder,Current duplicate-omitted candidate new-literature review set refreshed from new_literature after metadata fallback updates.
+batlit-dedupe/processed_runs/20260629_111835_Bates_2026_rerun/Deduplicated_likely_duplicates/,folder,Current likely-duplicate review set refreshed from likely_duplicates and accompanied by manifests with possible BatLit/Zenodo duplicate links.
+batlit-dedupe/archive/20260629_114508_oldBates_remaining/,folder,Non-destructive archive copy of the superseded 20260623 Bates run; created because Windows/Dropbox would not release the original folder for moving.
+batlit-dedupe/processed_runs/20260623_132514_Bates_2026/_SUPERSEDED_DO_NOT_USE.txt,file,Marker showing that the old Bates run has been superseded by the 20260629 rerun and should not be used as current output.
+batlit-dedupe/scripts/batlit_sync_run_outputs.py,file,Synchronizes metadata-improved routed PDFs into deduplicated review folders manifests and timestamped Zotero upload folders.

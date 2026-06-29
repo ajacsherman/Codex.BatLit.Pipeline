@@ -30,7 +30,7 @@ This folder is a human-readable guide to the BatLit pipeline project structure. 
 | `collection_tracking/` | Collection-level action logs and summaries that record what happened to each file in a named collection. |
 | `scripts/` | Reusable Python scripts that run the pipeline. |
 
-## Current Clean Run: `processed_runs/20260623_132514_Bates_2026/`
+## Current Clean Run: `processed_runs/20260629_111835_Bates_2026_rerun/`
 
 | Folder/File | Description |
 | --- | --- |
@@ -44,6 +44,19 @@ This folder is a human-readable guide to the BatLit pipeline project structure. 
 | `failed_processing/` | Files that could not be processed cleanly enough for routine routing. These need better OCR, repair, or manual citation searching. This folder may be absent or empty in a run if no files land there. |
 | `bibliography.csv` / `bibliography.xlsx` inside each category | Category-specific bibliography and routing metadata for the PDFs in that folder. |
 | `metadata_embedding_report.csv` | Report showing which routed PDFs had metadata embedded into the PDF document info fields. |
+
+## Current Zotero Upload Folder
+
+| Path | Description |
+| --- | --- |
+| `batlit-dedupe/processed_runs/20260629_111835_Bates_2026_rerun/20260629_114341_zotero_upload/` | Timestamped Zotero-ready upload folder containing metadata-enhanced PDFs from `new_literature/` only. Confirmed duplicates, likely duplicates, and non-bat review items are omitted. |
+
+## Superseded Bates Run
+
+| Path | Description |
+| --- | --- |
+| `batlit-dedupe/archive/20260629_114508_oldBates_remaining/` | Non-destructive archive copy of the superseded `20260623_132514_Bates_2026` run. This was used because Dropbox/Windows would not release the original folder for moving. |
+| `batlit-dedupe/processed_runs/20260623_132514_Bates_2026/_SUPERSEDED_DO_NOT_USE.txt` | Marker left in the old run folder showing that it has been superseded and should not be used as the current collection output. |
 
 ## Bates 2026 Collection Tracking
 

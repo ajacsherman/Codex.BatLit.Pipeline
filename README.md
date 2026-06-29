@@ -368,6 +368,42 @@ incoming PDFs
   -> Zotero-readable metadata staging
 ```
 
+## Clean Rerun Order
+
+For a new or reprocessed collection, run the steps in this order so every folder and CSV reflects the same decision pass:
+
+```bash
+python3 scripts/batlit_dedupe_workflow.py --base .
+python3 scripts/batlit_route_pdfs.py --base . --copy --include-duplicates --rename-citation --run-folder YYYYMMDD_HHMMSS_COLLECTION
+python scripts/batlit_embed_pdf_metadata.py --base . --run-folder YYYYMMDD_HHMMSS_COLLECTION --apply
+python scripts/batlit_apply_metadata_fallbacks.py --base . --run-folder YYYYMMDD_HHMMSS_COLLECTION --folder new_literature --apply
+python scripts/batlit_sync_run_outputs.py --base . --run-folder YYYYMMDD_HHMMSS_COLLECTION --collection-name "Collection name" --make-upload-folder
+python scripts/batlit_create_deduplicated_review_sets.py --base . --run-folder YYYYMMDD_HHMMSS_COLLECTION --collection-name "Collection name"
+python scripts/batlit_collection_action_log.py --base . --collection-name "Collection name" --run-folder YYYYMMDD_HHMMSS_COLLECTION
+```
+
+The sync step refreshes `Deduplicated_new_literature/`, `Deduplicated_likely_duplicates/`, the run-level deduplicated manifest, and a timestamped `YYYYMMDD_HHMMSS_zotero_upload/` folder containing the metadata-enhanced new-literature PDFs. Superseded run outputs are archived under `batlit-dedupe/archive/`; if Dropbox or Windows locks a large folder, create a non-destructive archive copy and mark the original with `_SUPERSEDED_DO_NOT_USE.txt`.
+
+## Current Bates 2026 Rerun
+
+The current clean rerun is:
+
+```text
+batlit-dedupe/processed_runs/20260629_111835_Bates_2026_rerun/
+```
+
+Current upload-ready PDFs for Zotero are in:
+
+```text
+batlit-dedupe/processed_runs/20260629_111835_Bates_2026_rerun/20260629_114341_zotero_upload/
+```
+
+The previous Bates run was archived to:
+
+```text
+batlit-dedupe/archive/20260629_114508_oldBates_remaining/
+```
+
 ## Data Sources
 
 - BatLit website: https://batlit.org/

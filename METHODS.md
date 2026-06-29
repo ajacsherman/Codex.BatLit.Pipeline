@@ -34,6 +34,14 @@ After routing, bibliography metadata is embedded into the routed PDF copies usin
 
 The pipeline writes CSV and XLSX bibliographies for each routed folder, collection-level action logs, routing reports, dedupe reports, metadata embedding reports, and timestamped manifests. These files preserve the decisions made for each PDF and allow later reconstruction of what was added, excluded, or sent to manual review.
 
+## Clean Rerun and Archive Policy
+
+When a collection is reprocessed, the original incoming batch is treated as the source of truth and the full sequence is rerun: deduplication, routing, metadata embedding, curated metadata fallback, derived-folder synchronization, deduplicated review manifest creation, and collection action-log generation. Derived folders are not edited as independent sources; they are refreshed from the routed folders after metadata improvement.
+
+For the Bates 2026 rerun on 2026-06-29, the active run folder is `processed_runs/20260629_111835_Bates_2026_rerun/`. The run retained 544 confirmed duplicates, 93 likely duplicates, 2,472 candidate new-literature PDFs, and 394 non-bat review PDFs. The Zotero upload set is `processed_runs/20260629_111835_Bates_2026_rerun/20260629_114341_zotero_upload/`, containing the metadata-enhanced new-literature PDFs only.
+
+Superseded outputs are preserved under `archive/` rather than deleted. When Windows or Dropbox prevents moving a large folder, a non-destructive archive copy is created and the original is marked with `_SUPERSEDED_DO_NOT_USE.txt` until it can be retired.
+
 ## Citation Network Seed Extraction
 
 A citation-network phase was added as an optional downstream step. The workflow scans duplicate-omitted review sets, extracts full text, identifies the cited-reference section using common headings such as `References`, `Literature cited`, and `Bibliography`, and splits that section into candidate reference strings. For each cited reference, the script records the source PDF, reference text, DOI when present, URL when present, year, guessed authors, guessed title, and a stable reference key. A separate edge-list file records source PDF to cited-reference relationships for network analysis.
