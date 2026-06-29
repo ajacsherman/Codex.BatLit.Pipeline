@@ -241,6 +241,29 @@ processed_runs/20260623_132514_Bates_2026/Deduplicated_likely_duplicates/
 
 `Deduplicated_new_literature/` contains new Zotero candidates after confirmed duplicates have been omitted. `Deduplicated_likely_duplicates/` contains possible duplicates that should be reviewed manually before import. Each folder receives `deduplicated_review_manifest.csv`, and the run folder receives a combined `deduplicated_review_manifest.csv`.
 
+## Synchronize Run Outputs After Metadata Improvements
+
+After any metadata pass that updates `new_literature/bibliography.csv` or embeds better metadata into routed PDFs, synchronize the derived folders and create a fresh upload-ready folder:
+
+```bash
+python3 scripts/batlit_sync_run_outputs.py \
+  --run-folder "YYYYMMDD_HHMMSS_batch-label" \
+  --collection-name "Collection label" \
+  --make-upload-folder
+```
+
+This refreshes:
+
+```text
+Deduplicated_new_literature/
+Deduplicated_likely_duplicates/
+deduplicated_review_manifest.csv
+sync_runs/YYYYMMDD_HHMMSS_sync_run_outputs/
+YYYYMMDD_HHMMSS_enhanced_metadata_pdfs_for_zotero/
+```
+
+Use the newest `*_enhanced_metadata_pdfs_for_zotero/` folder for Zotero upload. The sync step does not change duplicate/non-bat/new-literature decisions; it keeps copied folders, manifests, bibliographies, and upload sets consistent after metadata improvements.
+
 ## Extract Cited References For Citation Network Review
 
 To seed a citation network or create a track-down spreadsheet for cited literature:
