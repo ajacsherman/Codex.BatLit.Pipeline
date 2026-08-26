@@ -11,9 +11,6 @@ from pathlib import Path
 from urllib.parse import quote_plus, urlencode
 from urllib.request import Request, urlopen
 
-from pypdf import PdfReader, PdfWriter
-
-
 YEAR_RE = re.compile(r"\b(18|19|20)\d{2}\b")
 DOI_RE = re.compile(r"10\.\d{4,9}/[-._;()/:A-Z0-9]+", re.IGNORECASE)
 STOPWORDS = {
@@ -68,7 +65,7 @@ def run_command(cmd, timeout=90):
     )
 
 
-def pdftotext_first_pages(pdf_path, text_path, pages=3, force=False):
+def pdftotext_first_pages(pdf_path, text_path, pages=10, force=False):
     if force or not text_path.exists():
         text_path.parent.mkdir(parents=True, exist_ok=True)
         run_command(["pdftotext", "-f", "1", "-l", str(pages), str(pdf_path), str(text_path)])
@@ -243,6 +240,8 @@ def write_csv(path, fieldnames, rows):
 
 
 def embed_pdf_metadata(pdf_path, row, candidate):
+    from pypdf import PdfReader, PdfWriter
+
     reader = PdfReader(str(pdf_path))
     writer = PdfWriter()
     for page in reader.pages:
@@ -278,6 +277,7 @@ def main():
     parser.add_argument("--mailto", default="", help="Email for polite Crossref/OpenAlex API requests.")
     parser.add_argument("--apply", action="store_true", help="Embed high-confidence results and update bibliography.csv.")
     parser.add_argument("--force-text", action="store_true", help="Refresh cached first-page text.")
+    parser.add_argument("--pages", type=int, default=10, help="Number of leading pages to sample for citation clues.")
     args = parser.parse_args()
 
     base = Path(args.base).resolve()
@@ -302,7 +302,12 @@ def main():
         pdf_path = folder / routed
         text_error = ""
         try:
-            text = pdftotext_first_pages(pdf_path, (text_dir / safe_name(pdf_path)).with_suffix(".pages1-3.txt"), force=args.force_text)
+            text = pdftotext_first_pages(
+                pdf_path,
+                (text_dir / safe_name(pdf_path)).with_suffix(f".pages1-{args.pages}.txt"),
+                pages=args.pages,
+                force=args.force_text,
+            )
             clues = extract_text_clues(text)
         except Exception as exc:
             clues = {"text_doi": "", "text_clues": ""}

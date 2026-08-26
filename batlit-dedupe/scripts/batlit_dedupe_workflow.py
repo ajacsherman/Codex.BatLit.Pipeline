@@ -3,6 +3,7 @@ import argparse
 import csv
 import hashlib
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -76,6 +77,123 @@ def cached_pdftotext(pdf_path, out_path, first_page=None, last_page=None, timeou
     if force or not out_path.exists():
         return pdftotext(pdf_path, out_path, first_page=first_page, last_page=last_page, timeout=timeout)
     return out_path.read_text(encoding="utf-8", errors="replace")
+
+
+def text_score(text):
+    text = text or ""
+    words = re.findall(r"[A-Za-z][A-Za-z-]{2,}", text)
+    years = YEAR_RE.findall(text)
+    doi_hits = DOI_RE.findall(text)
+    metadata_terms = re.findall(
+        r"\b(title|author|authors|journal|volume|species|description|doi|museum|proceedings)\b",
+        text,
+        flags=re.IGNORECASE,
+    )
+    return len(words) + (10 * len(years)) + (25 * len(doi_hits)) + (3 * len(metadata_terms))
+
+
+def run_ocr(input_pdf, output_pdf, method, timeout=900, force=False):
+    if output_pdf.exists() and not force:
+        return ""
+    output_pdf.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ocrmypdf",
+        "--rotate-pages",
+        "--deskew",
+        "--optimize",
+        "0",
+    ]
+    if method == "ocrmypdf_skip_text":
+        cmd.append("--skip-text")
+    elif method == "ocrmypdf_force_ocr":
+        cmd.append("--force-ocr")
+    else:
+        raise ValueError(f"Unknown OCR method: {method}")
+    cmd.extend([str(input_pdf), str(output_pdf)])
+    try:
+        run_command(cmd, timeout=timeout)
+        return ""
+    except Exception as exc:
+        return f"{type(exc).__name__}: {exc}"
+
+
+def extract_text_set(pdf_path, cache_base, front_matter_pages, force=False, method_label="native"):
+    first_page_path = cache_base.with_suffix(f".{method_label}.page1.txt")
+    front_matter_path = cache_base.with_suffix(f".{method_label}.pages1-{front_matter_pages}.txt")
+    full_text_path = cache_base.with_suffix(f".{method_label}.full.txt")
+    first_page_text = cached_pdftotext(
+        pdf_path, first_page_path, first_page=1, last_page=1, force=force
+    )
+    front_matter_text = cached_pdftotext(
+        pdf_path,
+        front_matter_path,
+        first_page=1,
+        last_page=front_matter_pages,
+        force=force,
+    )
+    full_text = cached_pdftotext(pdf_path, full_text_path, timeout=180, force=force)
+    return first_page_text, front_matter_text, full_text
+
+
+def best_text_extraction(pdf_path, text_dir, ocr_dir, front_matter_pages, force=False, min_front_score=120, ocr_fallback=True):
+    cache_base = text_dir / safe_name(pdf_path)
+    attempts = []
+    candidates = []
+
+    def add_candidate(method, source_pdf):
+        try:
+            first, front, full = extract_text_set(
+                source_pdf, cache_base, front_matter_pages, force=force, method_label=method
+            )
+            front_score = text_score(front)
+            full_score = text_score(full)
+            candidates.append({
+                "method": method,
+                "first_page_text": first,
+                "front_matter_text": front,
+                "full_text": full,
+                "front_score": front_score,
+                "full_score": full_score,
+                "error": "",
+            })
+            attempts.append(f"{method}:front={front_score};full={full_score}")
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+            attempts.append(f"{method}:error={error}")
+
+    add_candidate("native", pdf_path)
+    best = max(candidates, key=lambda item: (item["front_score"], item["full_score"]), default=None)
+
+    if (not best or best["front_score"] < min_front_score) and ocr_fallback and shutil.which("ocrmypdf"):
+        for method in ("ocrmypdf_skip_text", "ocrmypdf_force_ocr"):
+            ocr_pdf = (ocr_dir / safe_name(pdf_path)).with_suffix(f".{method}.pdf")
+            error = run_ocr(pdf_path, ocr_pdf, method, force=force)
+            if error:
+                attempts.append(f"{method}:error={error}")
+                continue
+            add_candidate(method, ocr_pdf)
+            best = max(candidates, key=lambda item: (item["front_score"], item["full_score"]), default=best)
+            if best and best["front_score"] >= min_front_score:
+                break
+    elif ocr_fallback and not shutil.which("ocrmypdf"):
+        attempts.append("ocrmypdf:missing")
+
+    if not best:
+        return "", "", "", "", 0, 0, " | ".join(attempts), "text_extraction_failed"
+
+    text_error = best["error"]
+    if best["front_score"] == 0 and best["full_score"] == 0:
+        text_error = text_error or "no_readable_text_from_available_methods"
+    return (
+        best["first_page_text"],
+        best["front_matter_text"],
+        best["full_text"],
+        best["method"],
+        best["front_score"],
+        best["full_score"],
+        " | ".join(attempts),
+        text_error,
+    )
 
 
 def pdf_page_count(pdf_path):
@@ -349,6 +467,17 @@ def main():
         action="store_true",
         help="treat shared source-work metadata as possible distinct excerpts rather than duplicate evidence",
     )
+    parser.add_argument(
+        "--no-ocr-fallback",
+        action="store_true",
+        help="Do not run OCR fallback methods when native text extraction is weak.",
+    )
+    parser.add_argument(
+        "--min-front-text-score",
+        type=int,
+        default=120,
+        help="Minimum front-matter text score before OCR fallback is skipped.",
+    )
     args = parser.parse_args()
 
     base = Path(args.base).resolve()
@@ -357,10 +486,10 @@ def main():
     reports_dir = base / "reports"
     front_matter_pages = max(1, args.front_matter_pages)
     text_dir = base / "work" / f"text_first{front_matter_pages}"
-    full_text_dir = base / "work" / "text_full_keyword_scan"
+    ocr_dir = base / "work" / "ocr_pdfs"
     reports_dir.mkdir(parents=True, exist_ok=True)
     text_dir.mkdir(parents=True, exist_ok=True)
-    full_text_dir.mkdir(parents=True, exist_ok=True)
+    ocr_dir.mkdir(parents=True, exist_ok=True)
 
     refs_by_doi, refs_by_md5, refs_by_title, ref_count = load_batlit_refs(refs_path)
     pdfs = find_pdfs(incoming_dir)
@@ -382,31 +511,24 @@ def main():
         page_count = pdf_page_count(pdf_path)
         hash_matches = refs_by_md5.get(md5, [])
 
-        cache_base = text_dir / safe_name(pdf_path)
-        first_page_path = cache_base.with_suffix(".page1.txt")
-        front_matter_path = cache_base.with_suffix(f".pages1-{front_matter_pages}.txt")
-        full_text_path = (full_text_dir / safe_name(pdf_path)).with_suffix(".full.txt")
-        text_error = ""
-
-        try:
-            first_page_text = cached_pdftotext(
-                pdf_path, first_page_path, first_page=1, last_page=1, force=args.force_text
-            )
-            front_matter_text = cached_pdftotext(
-                pdf_path,
-                front_matter_path,
-                first_page=1,
-                last_page=front_matter_pages,
-                force=args.force_text,
-            )
-            full_keyword_text = cached_pdftotext(
-                pdf_path, full_text_path, timeout=180, force=args.force_text
-            )
-        except Exception as exc:
-            first_page_text = ""
-            front_matter_text = ""
-            full_keyword_text = ""
-            text_error = f"{type(exc).__name__}: {exc}"
+        (
+            first_page_text,
+            front_matter_text,
+            full_keyword_text,
+            text_extraction_method,
+            front_matter_text_score,
+            full_text_score,
+            ocr_attempts,
+            text_error,
+        ) = best_text_extraction(
+            pdf_path,
+            text_dir,
+            ocr_dir,
+            front_matter_pages,
+            force=args.force_text,
+            min_front_score=args.min_front_text_score,
+            ocr_fallback=not args.no_ocr_fallback,
+        )
 
         title, authors, year = plausible_title_and_authors(front_matter_text or first_page_text)
         front_matter_dois = sorted({clean_doi(match.group(0)) for match in DOI_RE.finditer(front_matter_text)})
@@ -461,6 +583,10 @@ def main():
             "batlit_attachment_id": batlit_attachment_id,
             "bat_relevance_status": relevance_status,
             "bat_relevance_reason": relevance_reason,
+            "text_extraction_method": text_extraction_method,
+            "front_matter_text_score": front_matter_text_score,
+            "full_text_score": full_text_score,
+            "ocr_attempts": ocr_attempts,
             "text_error": text_error,
         })
 
@@ -514,6 +640,10 @@ def main():
         "batlit_attachment_id",
         "bat_relevance_status",
         "bat_relevance_reason",
+        "text_extraction_method",
+        "front_matter_text_score",
+        "full_text_score",
+        "ocr_attempts",
         "text_error",
     ]
     zotero_fields = [

@@ -74,7 +74,7 @@ def safe_name(path):
     return re.sub(r"[^A-Za-z0-9._-]+", "_", path.stem).strip("_")
 
 
-def pdftotext_first_pages(pdf_path, text_path, pages=3, force=False):
+def pdftotext_first_pages(pdf_path, text_path, pages=10, force=False):
     if force or not text_path.exists():
         text_path.parent.mkdir(parents=True, exist_ok=True)
         run_command(["pdftotext", "-f", "1", "-l", str(pages), str(pdf_path), str(text_path)])
@@ -180,6 +180,7 @@ def main():
     parser.add_argument("--folders", default="new_literature", help="Comma-separated routed folders to scan.")
     parser.add_argument("--all", action="store_true", help="Include rows that do not look like they need lookup.")
     parser.add_argument("--force-text", action="store_true", help="Refresh cached first-page text.")
+    parser.add_argument("--pages", type=int, default=10, help="Number of leading pages to sample for citation clues.")
     args = parser.parse_args()
 
     base = Path(args.base).resolve()
@@ -211,7 +212,8 @@ def main():
             try:
                 text = pdftotext_first_pages(
                     pdf_path,
-                    (text_dir / folder / safe_name(pdf_path)).with_suffix(".pages1-3.txt"),
+                    (text_dir / folder / safe_name(pdf_path)).with_suffix(f".pages1-{args.pages}.txt"),
+                    pages=args.pages,
                     force=args.force_text,
                 )
                 clues = extract_clues(text)

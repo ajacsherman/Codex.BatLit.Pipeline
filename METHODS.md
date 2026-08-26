@@ -14,11 +14,15 @@ We built a lightweight BatLit literature fingerprint index from the BatLit refer
 
 Incoming PDFs are screened before Zotero import. The workflow computes MD5 and SHA256 hashes, extracts page count with `pdfinfo`, extracts text with `pdftotext`, and uses the first ten pages by default to infer title, authors, year, and DOI candidates. This change was made because books, older scans, and museum literature can place title-page or publication details several pages into the PDF. Full extracted text is also scanned for bat-relevance terms, including `bat`, `bats`, and `chiroptera`, and for non-bat context terms.
 
+Text extraction is now method-aware. The workflow first scores native `pdftotext` output. If front-matter text is weak or unavailable, it can generate OCR alternatives with `ocrmypdf --skip-text` and `ocrmypdf --force-ocr`, then extract text from those OCR PDFs and keep the highest-scoring readable result. The selected extraction method, front-matter text score, full-text score, and OCR attempts are recorded in the dedupe report.
+
 ## AMNH Batch Handling
 
 The AMNH papers are treated as a single source-level acquisition batch rather than being split into separate files by individual literature collection. The active naming convention is source-first and date-only, such as `AMNH_20260826`. AMNH duplicates are not expected because the original description citation list was previously compared with the existing BatLit corpus and cross-referenced against available online citation records. The pipeline still performs duplicate checks as a sanity audit, but AMNH runs use excerpt-aware matching. Exact file hashes can identify true duplicate PDFs. Shared title-page metadata, source-work DOI matches, or title/author/year matches are recorded as possible same-source excerpts rather than automatically routed as duplicates, because multiple species descriptions can come from different pages of the same book.
 
 AMNH source PDFs are staged in `amnh_incoming/` rather than the shared `incoming/` folder. This keeps the AMNH acquisition batch separate from earlier workflow batches and prevents accidental rerouting of older Bates-era PDFs under an AMNH label. The Google Drive source folder is treated as an external handoff location; files must be downloaded or synced locally into `amnh_incoming/` before the pre-Zotero pipeline can process them.
+
+For AMNH records with weak or missing citation metadata, the workflow creates a citation lookup packet using the first ten pages of extracted text. The packet records OCR-derived clues, a recommended search query, and review links for Google Scholar, Crossref, OpenAlex, Semantic Scholar, BHL, Internet Archive, and DOI lookup. Google Scholar is treated as a manual review target rather than an automated data source because it does not provide a stable public API for scripted harvesting. Structured metadata candidates from Crossref and OpenAlex are recorded separately and should only be embedded when confidence is high and the result is bibliographically plausible.
 
 ## Duplicate Classification
 
