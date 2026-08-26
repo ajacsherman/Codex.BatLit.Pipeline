@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import csv
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -31,6 +32,21 @@ def copy_if_exists(source, destination):
         copy_file(source, destination)
         return True
     return False
+
+
+def slugify(value):
+    value = re.sub(r"[^A-Za-z0-9]+", "_", (value or "").strip())
+    return re.sub(r"_+", "_", value).strip("_") or "collection"
+
+
+def unique_dir(path):
+    if not path.exists():
+        return path
+    for index in range(2, 100):
+        candidate = path.with_name(f"{path.name}_{index:02d}")
+        if not candidate.exists():
+            return candidate
+    raise FileExistsError(f"Could not find an unused folder name for {path}")
 
 
 def read_csv(path):
@@ -84,12 +100,19 @@ def main():
     parser.add_argument("--run-folder", required=True, help="Folder under processed_runs.")
     parser.add_argument("--collection-name", default="", help="Collection label.")
     parser.add_argument("--make-upload-folder", action="store_true", help="Create a fresh timestamped upload-ready folder from new_literature.")
+    parser.add_argument(
+        "--date-only",
+        action="store_true",
+        help="Use YYYYMMDD instead of YYYYMMDD_HHMMSS for generated sync and upload folders.",
+    )
     args = parser.parse_args()
 
     base = Path(args.base).resolve()
     run_dir = base / "processed_runs" / args.run_folder
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    sync_dir = run_dir / "sync_runs" / f"{stamp}_sync_run_outputs"
+    stamp = datetime.now().strftime("%Y%m%d" if args.date_only else "%Y%m%d_%H%M%S")
+    collection_slug = slugify(args.collection_name)
+    file_prefix = f"{collection_slug}_{stamp}"
+    sync_dir = unique_dir(run_dir / "sync_runs" / f"{file_prefix}_sync_run_outputs")
     sync_dir.mkdir(parents=True, exist_ok=True)
 
     sync_rows = []
@@ -116,7 +139,7 @@ def main():
             copied = copy_if_exists(source / filename, destination / filename)
             sync_rows.append({"item": f"{destination_name}/{filename}", "status": "copied" if copied else "missing", "details": str(source / filename)})
             if copied and filename == "bibliography.csv":
-                copy_file(destination / filename, destination / f"{stamp}_bibliography.csv")
+                copy_file(destination / filename, destination / f"{file_prefix}_bibliography.csv")
 
         bib_rows = read_csv(destination / "bibliography.csv")
         manifest_rows = manifest_from_bibliography(
@@ -125,17 +148,17 @@ def main():
         combined_manifest.extend(manifest_rows)
         if manifest_rows:
             write_csv(destination / "deduplicated_review_manifest.csv", manifest_fields, manifest_rows)
-            write_csv(destination / f"{stamp}_deduplicated_review_manifest.csv", manifest_fields, manifest_rows)
+            write_csv(destination / f"{file_prefix}_deduplicated_review_manifest.csv", manifest_fields, manifest_rows)
             sync_rows.append({"item": f"{destination_name}/deduplicated_review_manifest.csv", "status": "written", "details": str(len(manifest_rows))})
 
     if combined_manifest:
         write_csv(run_dir / "deduplicated_review_manifest.csv", manifest_fields, combined_manifest)
-        write_csv(run_dir / f"{stamp}_deduplicated_review_manifest.csv", manifest_fields, combined_manifest)
+        write_csv(run_dir / f"{file_prefix}_deduplicated_review_manifest.csv", manifest_fields, combined_manifest)
         sync_rows.append({"item": "run/deduplicated_review_manifest.csv", "status": "written", "details": str(len(combined_manifest))})
 
     if args.make_upload_folder:
         source = run_dir / "new_literature"
-        upload = run_dir / f"{stamp}_zotero_upload"
+        upload = unique_dir(run_dir / f"{file_prefix}_zotero_upload")
         copied = copy_pdfs(source, upload)
         for filename in ["bibliography.csv", "metadata_fallback_report.csv"]:
             copy_if_exists(source / filename, upload / filename)

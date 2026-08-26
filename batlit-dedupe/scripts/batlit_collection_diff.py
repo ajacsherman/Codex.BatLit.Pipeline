@@ -18,9 +18,8 @@ FIELDNAMES = [
 
 
 def slugify(value):
-    value = (value or "collection").strip().lower()
-    value = re.sub(r"[^a-z0-9]+", "-", value)
-    return value.strip("-") or "collection"
+    value = re.sub(r"[^A-Za-z0-9]+", "_", (value or "collection").strip())
+    return re.sub(r"_+", "_", value).strip("_") or "collection"
 
 
 def file_hashes(path):
@@ -78,9 +77,19 @@ def write_csv(path, rows, fieldnames=FIELDNAMES):
         writer.writerows(rows)
 
 
-def write_csv_pair(collection_dir, stamp, filename, rows, fieldnames=FIELDNAMES):
+def write_csv_pair(collection_dir, file_prefix, filename, rows, fieldnames=FIELDNAMES):
     write_csv(collection_dir / filename, rows, fieldnames)
-    write_csv(collection_dir / f"{stamp}_{filename}", rows, fieldnames)
+    write_csv(collection_dir / f"{file_prefix}_{filename}", rows, fieldnames)
+
+
+def unique_dir(path):
+    if not path.exists():
+        return path
+    for index in range(2, 100):
+        candidate = path.with_name(f"{path.name}_{index:02d}")
+        if not candidate.exists():
+            return candidate
+    raise FileExistsError(f"Could not find an unused folder name for {path}")
 
 
 def latest_prior_manifest(collections_dir):
@@ -94,14 +103,20 @@ def main():
     parser.add_argument("--label", default="", help="short human-readable label for this collection")
     parser.add_argument("--previous", default="", help="optional prior manifest CSV to diff against")
     parser.add_argument("--no-previous", action="store_true", help="do not compare against a prior manifest")
+    parser.add_argument(
+        "--date-only",
+        action="store_true",
+        help="Use YYYYMMDD instead of YYYYMMDD_HHMMSS for generated folders and files.",
+    )
     args = parser.parse_args()
 
     base = Path(args.base).resolve()
     incoming_dir = base / "incoming"
     collections_dir = base / "collections"
     label = slugify(args.label)
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    collection_dir = collections_dir / f"{stamp}_{label}"
+    stamp = datetime.now().strftime("%Y%m%d" if args.date_only else "%Y%m%d_%H%M%S")
+    collection_dir = unique_dir(collections_dir / f"{label}_{stamp}")
+    collection_file_prefix = collection_dir.name
 
     current = build_manifest(incoming_dir)
     previous_path = None if args.no_previous else Path(args.previous).resolve() if args.previous else latest_prior_manifest(collections_dir)
@@ -115,11 +130,11 @@ def main():
     unchanged = [row for row in current if row.get("md5") in previous_hashes]
     duplicate_rows = duplicate_hash_rows(current)
 
-    write_csv_pair(collection_dir, stamp, "incoming_manifest.csv", current)
-    write_csv_pair(collection_dir, stamp, "diff_added.csv", added)
-    write_csv_pair(collection_dir, stamp, "diff_removed.csv", removed)
-    write_csv_pair(collection_dir, stamp, "diff_unchanged.csv", unchanged)
-    write_csv_pair(collection_dir, stamp, "duplicates_within_collection.csv", duplicate_rows)
+    write_csv_pair(collection_dir, collection_file_prefix, "incoming_manifest.csv", current)
+    write_csv_pair(collection_dir, collection_file_prefix, "diff_added.csv", added)
+    write_csv_pair(collection_dir, collection_file_prefix, "diff_removed.csv", removed)
+    write_csv_pair(collection_dir, collection_file_prefix, "diff_unchanged.csv", unchanged)
+    write_csv_pair(collection_dir, collection_file_prefix, "duplicates_within_collection.csv", duplicate_rows)
 
     summary_lines = [
         f"Collection: {collection_dir.name}",
@@ -136,15 +151,15 @@ def main():
         "",
         "Files:",
         "  incoming_manifest.csv",
-        f"  {stamp}_incoming_manifest.csv",
+        f"  {collection_file_prefix}_incoming_manifest.csv",
         "  diff_added.csv",
-        f"  {stamp}_diff_added.csv",
+        f"  {collection_file_prefix}_diff_added.csv",
         "  diff_removed.csv",
-        f"  {stamp}_diff_removed.csv",
+        f"  {collection_file_prefix}_diff_removed.csv",
         "  diff_unchanged.csv",
-        f"  {stamp}_diff_unchanged.csv",
+        f"  {collection_file_prefix}_diff_unchanged.csv",
         "  duplicates_within_collection.csv",
-        f"  {stamp}_duplicates_within_collection.csv",
+        f"  {collection_file_prefix}_duplicates_within_collection.csv",
     ]
     (collection_dir / "summary.txt").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
 

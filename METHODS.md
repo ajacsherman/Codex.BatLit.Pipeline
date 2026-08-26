@@ -8,11 +8,15 @@ The current test collection is labeled `Bates 2026`, a set of PDFs shared by Pau
 
 ## Corpus Indexing
 
-We built a lightweight BatLit literature fingerprint index from the BatLit reference export `index/refs.csv`. The index is stored independently of Zotero as `index/literature_fingerprint_index.csv` with timestamped archival copies. For each BatLit record, the index stores DOI, alternative DOI, title, normalized title, authors, normalized authors, first author, year, journal and publication fields, Zotero item URL, attachment identifiers, and extracted MD5 hashes where available. Placeholder columns are retained for future corpus-side page counts and first-page or first-three-page text fingerprints.
+We built a lightweight BatLit literature fingerprint index from the BatLit reference export `index/refs.csv`. The index is stored independently of Zotero as `index/literature_fingerprint_index.csv` with timestamped archival copies. For each BatLit record, the index stores DOI, alternative DOI, title, normalized title, authors, normalized authors, first author, year, journal and publication fields, Zotero item URL, attachment identifiers, and extracted MD5 hashes where available. Placeholder columns are retained for future corpus-side page counts and first-page or first-ten-page text fingerprints.
 
 ## Incoming PDF Screening
 
-Incoming PDFs are screened before Zotero import. The workflow computes MD5 and SHA256 hashes, extracts page count with `pdfinfo`, extracts text with `pdftotext`, and uses the first page to infer title, authors, and year. DOI candidates are extracted from the first three pages. Full extracted text is also scanned for bat-relevance terms, including `bat`, `bats`, and `chiroptera`, and for non-bat context terms.
+Incoming PDFs are screened before Zotero import. The workflow computes MD5 and SHA256 hashes, extracts page count with `pdfinfo`, extracts text with `pdftotext`, and uses the first ten pages by default to infer title, authors, year, and DOI candidates. This change was made because books, older scans, and museum literature can place title-page or publication details several pages into the PDF. Full extracted text is also scanned for bat-relevance terms, including `bat`, `bats`, and `chiroptera`, and for non-bat context terms.
+
+## AMNH Batch Handling
+
+The AMNH papers are treated as a single source-level acquisition batch rather than being split into separate files by individual literature collection. The active naming convention is source-first and date-only, such as `AMNH_20260826`. AMNH duplicates are not expected because the original description citation list was previously compared with the existing BatLit corpus and cross-referenced against available online citation records. The pipeline still performs hash, DOI, and title/author/year duplicate checks as a sanity audit; any duplicate or likely duplicate detected in the AMNH batch should be treated as an exception for manual review.
 
 ## Duplicate Classification
 

@@ -6,7 +6,7 @@ For a fresh clone or a new user, start with `QUICKSTART.md`.
 
 ## Current Workflow
 
-The current workflow screens PDFs in `batlit-dedupe/incoming/` against BatLit's published `refs.csv` index. It computes file hashes, extracts first-page and first-three-page text, detects front-matter DOI candidates, compares DOI and MD5 hashes against BatLit, and writes review reports.
+The current workflow screens PDFs in `batlit-dedupe/incoming/` against BatLit's published `refs.csv` index. It computes file hashes, extracts first-page and first-ten-page text, detects front-matter DOI candidates, compares DOI and MD5 hashes against BatLit, and writes review reports.
 
 The workflow currently makes high-confidence duplicate calls from:
 
@@ -63,6 +63,25 @@ After installing Python 3 and Poppler, initializing folders, adding `index/refs.
 ```bash
 python3 scripts/batlit_run_collection.py --collection-name "Collection Name"
 ```
+
+For AMNH batches, use one source-level collection label rather than splitting the papers into individual literature-collection files:
+
+```bash
+python3 scripts/batlit_run_collection.py --collection-name "AMNH"
+```
+
+This creates date-only source-first outputs such as:
+
+```text
+processed_runs/AMNH_YYYYMMDD/
+collections/AMNH_YYYYMMDD/
+collection_tracking/AMNH/AMNH_YYYYMMDD_action_log.csv
+processed_runs/AMNH_YYYYMMDD/AMNH_YYYYMMDD_zotero_upload/
+```
+
+AMNH PDFs are still routed into the normal decision folders (`duplicates`, `likely_duplicates`, `new_literature`, `non_bat_review`, and review/failure folders if needed), but they are not split into separate files by source literature collection.
+
+For AMNH, duplicates are not expected because the original description citation list was already compared with the existing BatLit corpus and cross-referenced against available online citation records. Duplicate detection still runs as an audit check; any duplicate or likely duplicate result should be reviewed as an exception.
 
 To initialize/check a fresh workspace:
 
@@ -343,7 +362,7 @@ sha256                incoming PDF SHA256 hash
 incoming_title        title inferred from first page text
 incoming_authors      authors inferred from first page text
 incoming_year_guess   year inferred from first page text
-front_matter_dois     DOI strings found on pages 1-3
+front_matter_dois     DOI strings found in the first 10 pages by default
 batlit_match_count    number of BatLit matches
 batlit_title          BatLit title, if matched
 batlit_authors        BatLit authors, if matched
@@ -373,16 +392,16 @@ incoming PDFs
 For a new or reprocessed collection, run the steps in this order so every folder and CSV reflects the same decision pass:
 
 ```bash
-python3 scripts/batlit_dedupe_workflow.py --base .
-python3 scripts/batlit_route_pdfs.py --base . --copy --include-duplicates --rename-citation --run-folder YYYYMMDD_HHMMSS_COLLECTION
-python scripts/batlit_embed_pdf_metadata.py --base . --run-folder YYYYMMDD_HHMMSS_COLLECTION --apply
-python scripts/batlit_apply_metadata_fallbacks.py --base . --run-folder YYYYMMDD_HHMMSS_COLLECTION --folder new_literature --apply
-python scripts/batlit_sync_run_outputs.py --base . --run-folder YYYYMMDD_HHMMSS_COLLECTION --collection-name "Collection name" --make-upload-folder
-python scripts/batlit_create_deduplicated_review_sets.py --base . --run-folder YYYYMMDD_HHMMSS_COLLECTION --collection-name "Collection name"
-python scripts/batlit_collection_action_log.py --base . --collection-name "Collection name" --run-folder YYYYMMDD_HHMMSS_COLLECTION
+python3 scripts/batlit_dedupe_workflow.py --base . --front-matter-pages 10
+python3 scripts/batlit_route_pdfs.py --base . --copy --include-duplicates --rename-citation --run-folder SOURCE_YYYYMMDD
+python scripts/batlit_embed_pdf_metadata.py --base . --run-folder SOURCE_YYYYMMDD --apply
+python scripts/batlit_apply_metadata_fallbacks.py --base . --run-folder SOURCE_YYYYMMDD --folder new_literature --apply
+python scripts/batlit_sync_run_outputs.py --base . --run-folder SOURCE_YYYYMMDD --collection-name "Source name" --make-upload-folder --date-only
+python scripts/batlit_create_deduplicated_review_sets.py --base . --run-folder SOURCE_YYYYMMDD --collection-name "Source name"
+python scripts/batlit_collection_action_log.py --base . --collection-name "Source name" --run-folder SOURCE_YYYYMMDD --date-only
 ```
 
-The sync step refreshes `Deduplicated_new_literature/`, `Deduplicated_likely_duplicates/`, the run-level deduplicated manifest, and a timestamped `YYYYMMDD_HHMMSS_zotero_upload/` folder containing the metadata-enhanced new-literature PDFs. Superseded run outputs are archived under `batlit-dedupe/archive/`; if Dropbox or Windows locks a large folder, create a non-destructive archive copy and mark the original with `_SUPERSEDED_DO_NOT_USE.txt`.
+The sync step refreshes `Deduplicated_new_literature/`, `Deduplicated_likely_duplicates/`, the run-level deduplicated manifest, and a source/date-stamped `SOURCE_YYYYMMDD_zotero_upload/` folder containing the metadata-enhanced new-literature PDFs. Superseded run outputs are archived under `batlit-dedupe/archive/`; if Dropbox or Windows locks a large folder, create a non-destructive archive copy and mark the original with `_SUPERSEDED_DO_NOT_USE.txt`.
 
 ## Current Bates 2026 Rerun
 

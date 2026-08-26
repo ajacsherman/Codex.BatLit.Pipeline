@@ -328,13 +328,20 @@ def main():
     parser.add_argument("--base", default=".", help="batlit-dedupe folder; defaults to current directory")
     parser.add_argument("--limit", type=int, default=None, help="process only the first N PDFs")
     parser.add_argument("--force-text", action="store_true", help="refresh cached extracted text")
+    parser.add_argument(
+        "--front-matter-pages",
+        type=int,
+        default=10,
+        help="number of leading pages to scan for citation metadata and DOI candidates",
+    )
     args = parser.parse_args()
 
     base = Path(args.base).resolve()
     incoming_dir = base / "incoming"
     refs_path = base / "index" / "refs.csv"
     reports_dir = base / "reports"
-    text_dir = base / "work" / "text_first3"
+    front_matter_pages = max(1, args.front_matter_pages)
+    text_dir = base / "work" / f"text_first{front_matter_pages}"
     full_text_dir = base / "work" / "text_full_keyword_scan"
     reports_dir.mkdir(parents=True, exist_ok=True)
     text_dir.mkdir(parents=True, exist_ok=True)
@@ -362,7 +369,7 @@ def main():
 
         cache_base = text_dir / safe_name(pdf_path)
         first_page_path = cache_base.with_suffix(".page1.txt")
-        first3_path = cache_base.with_suffix(".pages1-3.txt")
+        front_matter_path = cache_base.with_suffix(f".pages1-{front_matter_pages}.txt")
         full_text_path = (full_text_dir / safe_name(pdf_path)).with_suffix(".full.txt")
         text_error = ""
 
@@ -370,20 +377,24 @@ def main():
             first_page_text = cached_pdftotext(
                 pdf_path, first_page_path, first_page=1, last_page=1, force=args.force_text
             )
-            first3_text = cached_pdftotext(
-                pdf_path, first3_path, first_page=1, last_page=3, force=args.force_text
+            front_matter_text = cached_pdftotext(
+                pdf_path,
+                front_matter_path,
+                first_page=1,
+                last_page=front_matter_pages,
+                force=args.force_text,
             )
             full_keyword_text = cached_pdftotext(
                 pdf_path, full_text_path, timeout=180, force=args.force_text
             )
         except Exception as exc:
             first_page_text = ""
-            first3_text = ""
+            front_matter_text = ""
             full_keyword_text = ""
             text_error = f"{type(exc).__name__}: {exc}"
 
-        title, authors, year = plausible_title_and_authors(first_page_text)
-        front_matter_dois = sorted({clean_doi(match.group(0)) for match in DOI_RE.finditer(first3_text)})
+        title, authors, year = plausible_title_and_authors(front_matter_text or first_page_text)
+        front_matter_dois = sorted({clean_doi(match.group(0)) for match in DOI_RE.finditer(front_matter_text)})
         own_doi_matches = []
         for doi in front_matter_dois:
             own_doi_matches.extend(refs_by_doi.get(doi, []))

@@ -52,6 +52,18 @@ def write_csv(path, fieldnames, rows):
         writer.writerows(rows)
 
 
+def unique_file(path):
+    if not path.exists():
+        return path
+    stem = path.stem
+    suffix = path.suffix
+    for index in range(2, 100):
+        candidate = path.with_name(f"{stem}_{index:02d}{suffix}")
+        if not candidate.exists():
+            return candidate
+    raise FileExistsError(f"Could not find an unused file name for {path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Create a collection-level action log from a BatLit routing report.")
     parser.add_argument("--base", default=".", help="batlit-dedupe folder.")
@@ -60,12 +72,17 @@ def main():
     parser.add_argument("--run-folder", default="", help="processed_runs folder name used for this collection.")
     parser.add_argument("--routing-report", default="reports/routing_report.csv")
     parser.add_argument("--output-root", default="collection_tracking")
+    parser.add_argument(
+        "--date-only",
+        action="store_true",
+        help="Use YYYYMMDD instead of YYYYMMDD_HHMMSS for generated action files.",
+    )
     args = parser.parse_args()
 
     base = Path(args.base).resolve()
     routing_path = base / args.routing_report
     rows = read_csv(routing_path)
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now().strftime("%Y%m%d" if args.date_only else "%Y%m%d_%H%M%S")
     collection_slug = slugify(args.collection_name)
     output_dir = base / args.output_root / collection_slug
 
@@ -146,7 +163,8 @@ def main():
         "bat_relevance_reason",
     ]
 
-    action_log_path = output_dir / f"{stamp}_{collection_slug}_action_log.csv"
+    file_prefix = f"{collection_slug}_{stamp}"
+    action_log_path = unique_file(output_dir / f"{file_prefix}_action_log.csv")
     write_csv(action_log_path, fields, out_rows)
     write_csv(output_dir / "latest_action_log.csv", fields, out_rows)
 
@@ -172,7 +190,7 @@ def main():
         "action_taken",
         "count",
     ]
-    summary_path = output_dir / f"{stamp}_{collection_slug}_action_summary.csv"
+    summary_path = unique_file(output_dir / f"{file_prefix}_action_summary.csv")
     write_csv(summary_path, summary_fields, summary_rows)
     write_csv(output_dir / "latest_action_summary.csv", summary_fields, summary_rows)
 
