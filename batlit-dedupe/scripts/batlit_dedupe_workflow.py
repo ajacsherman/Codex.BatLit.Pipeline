@@ -335,6 +335,7 @@ def find_pdfs(incoming_dir):
 def main():
     parser = argparse.ArgumentParser(description="Run BatLit pre-Zotero dedupe screening.")
     parser.add_argument("--base", default=".", help="batlit-dedupe folder; defaults to current directory")
+    parser.add_argument("--incoming-folder", default="incoming", help="PDF source folder relative to base")
     parser.add_argument("--limit", type=int, default=None, help="process only the first N PDFs")
     parser.add_argument("--force-text", action="store_true", help="refresh cached extracted text")
     parser.add_argument(
@@ -351,7 +352,7 @@ def main():
     args = parser.parse_args()
 
     base = Path(args.base).resolve()
-    incoming_dir = base / "incoming"
+    incoming_dir = base / args.incoming_folder
     refs_path = base / "index" / "refs.csv"
     reports_dir = base / "reports"
     front_matter_pages = max(1, args.front_matter_pages)

@@ -100,6 +100,7 @@ def latest_prior_manifest(collections_dir):
 def main():
     parser = argparse.ArgumentParser(description="Create a timestamped manifest and diff for a newly added incoming collection.")
     parser.add_argument("--base", default=".", help="batlit-dedupe folder; defaults to current directory")
+    parser.add_argument("--incoming-folder", default="incoming", help="PDF source folder relative to base")
     parser.add_argument("--label", default="", help="short human-readable label for this collection")
     parser.add_argument("--previous", default="", help="optional prior manifest CSV to diff against")
     parser.add_argument("--no-previous", action="store_true", help="do not compare against a prior manifest")
@@ -111,7 +112,7 @@ def main():
     args = parser.parse_args()
 
     base = Path(args.base).resolve()
-    incoming_dir = base / "incoming"
+    incoming_dir = base / args.incoming_folder
     collections_dir = base / "collections"
     label = slugify(args.label)
     stamp = datetime.now().strftime("%Y%m%d" if args.date_only else "%Y%m%d_%H%M%S")

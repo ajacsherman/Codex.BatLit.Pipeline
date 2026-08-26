@@ -36,6 +36,11 @@ def main():
     parser = argparse.ArgumentParser(description="Run the BatLit pre-Zotero pipeline for one incoming collection.")
     parser.add_argument("--base", default=".", help="batlit-dedupe folder; defaults to current directory.")
     parser.add_argument("--collection-name", required=True, help='Collection label, e.g. "Bates 2026".')
+    parser.add_argument(
+        "--incoming-folder",
+        default="",
+        help="PDF source folder relative to base; defaults to amnh_incoming for AMNH and incoming otherwise.",
+    )
     parser.add_argument("--run-folder", default="", help="Optional processed_runs folder name.")
     parser.add_argument("--run-date", default="", help="Optional YYYYMMDD date stamp; defaults to today.")
     parser.add_argument(
@@ -67,6 +72,7 @@ def main():
     scripts = base / "scripts"
     collection_slug = slugify(args.collection_name)
     excerpt_mode = args.excerpt_mode or collection_slug.upper().startswith("AMNH")
+    incoming_folder = args.incoming_folder or ("amnh_incoming" if excerpt_mode else "incoming")
     stamp_format = "%Y%m%d_%H%M%S" if args.time_stamps else "%Y%m%d"
     run_date = args.run_date or datetime.now().strftime(stamp_format)
     run_folder = args.run_folder or unique_dir(base / "processed_runs" / f"{collection_slug}_{run_date}").name
@@ -81,9 +87,11 @@ def main():
                 str(scripts / "batlit_collection_diff.py"),
                 "--base",
                 str(base),
+                "--incoming-folder",
+                incoming_folder,
                 "--label",
                 args.collection_name,
-            ] + ([] if args.time_stamps else ["--date-only"]),
+            ] + ([] if args.time_stamps else ["--date-only"]) + (["--no-previous"] if excerpt_mode else []),
             dry_run=args.dry_run,
         )
 
@@ -101,6 +109,8 @@ def main():
             str(scripts / "batlit_dedupe_workflow.py"),
             "--base",
             str(base),
+            "--incoming-folder",
+            incoming_folder,
             "--front-matter-pages",
             str(args.front_matter_pages),
         ] + (["--excerpt-mode"] if excerpt_mode else []),
@@ -114,6 +124,8 @@ def main():
             str(scripts / "batlit_route_pdfs.py"),
             "--base",
             str(base),
+            "--incoming-folder",
+            incoming_folder,
             "--copy",
             "--include-duplicates",
             "--rename-citation",

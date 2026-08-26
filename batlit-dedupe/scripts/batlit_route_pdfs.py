@@ -260,6 +260,7 @@ def write_bibliographies(processed_dir, rows_out, stamp):
 def main():
     parser = argparse.ArgumentParser(description="Route incoming PDFs into processed review folders.")
     parser.add_argument("--base", default=".", help="batlit-dedupe folder; defaults to current directory")
+    parser.add_argument("--incoming-folder", default="incoming", help="PDF source folder relative to base")
     parser.add_argument("--report", default="reports/dedupe_report.csv", help="dedupe CSV relative to base")
     parser.add_argument("--copy", action="store_true", help="copy files into processed folders")
     parser.add_argument("--move", action="store_true", help="move files into processed folders")
@@ -272,7 +273,7 @@ def main():
         raise SystemExit("Choose only one: --copy or --move")
 
     base = Path(args.base).resolve()
-    incoming_dir = base / "incoming"
+    incoming_dir = base / args.incoming_folder
     run_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     processed_dir = base / "processed_runs" / (args.run_folder or run_stamp) if args.run_folder is not None and args.run_folder != "" else base / "processed"
     report_path = base / args.report

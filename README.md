@@ -70,6 +70,14 @@ For AMNH batches, use one source-level collection label rather than splitting th
 python3 scripts/batlit_run_collection.py --collection-name "AMNH"
 ```
 
+AMNH source PDFs should be staged separately from earlier batches:
+
+```text
+batlit-dedupe/amnh_incoming/
+```
+
+The Google Drive folder must be downloaded or synced into `amnh_incoming/` before the pipeline can run. This prevents the AMNH batch from mixing with older PDFs still present in `batlit-dedupe/incoming/`.
+
 This creates date-only source-first outputs such as:
 
 ```text
