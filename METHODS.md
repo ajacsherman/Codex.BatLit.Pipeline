@@ -24,6 +24,8 @@ AMNH source PDFs are staged in `amnh_incoming/` rather than the shared `incoming
 
 For AMNH records with weak or missing citation metadata, the workflow creates a citation lookup packet using the first ten pages of extracted text. The packet records OCR-derived clues, a recommended search query, and review links for Google Scholar, Crossref, OpenAlex, Semantic Scholar, BHL, Internet Archive, and DOI lookup. Google Scholar is treated as a manual review target rather than an automated data source because it does not provide a stable public API for scripted harvesting. Structured metadata candidates from Crossref and OpenAlex are recorded separately and should only be embedded when confidence is high and the result is bibliographically plausible.
 
+For historical scans and taxonomic excerpts, an additional citation-clue pass scans the first ten pages for species binomials, title-like lines, years, original-description phrases, type-locality phrases, specimen-language clues, and source-institution clues. When Mammal Diversity Database exports are available locally, candidate names are cross-referenced against Chiroptera accepted names and synonyms. These matches are used as search anchors, not as automatic citation replacements. A species name can identify the taxonomic object of interest while the PDF itself may be a catalog page, book excerpt, plate, or later revision. Therefore, the clue pass writes a review CSV and a metadata-to-embed template. Metadata is embedded into PDFs only when a row is explicitly approved or marked high-confidence/curated/verified.
+
 ## Duplicate Classification
 
 Incoming PDFs are first compared with the BatLit corpus using exact MD5 hash matches, DOI matches from front matter, and normalized title/author/year matches. The workflow also compares PDFs within the current incoming batch using the same evidence classes. Exact hash and DOI matches are treated as confirmed duplicates. Title/author/year matches are treated as likely duplicates for manual review. The report records whether a match came from the BatLit corpus or from the current incoming batch.
@@ -39,6 +41,8 @@ For Bates 2026, confirmed duplicates were omitted from the next-stage review fol
 ## Metadata Embedding
 
 After routing, bibliography metadata is embedded into the routed PDF copies using PDF document information fields. Embedded fields include title, author, DOI, year, BatLit decision, decision reason, original filename, hashes, and Zotero/BatLit match identifiers where available. This step is intended to make the routed PDFs easier to inspect and import into Zotero while preserving separate CSV/XLSX audit records.
+
+When citation metadata is improved after the initial run, the updated fields are embedded into Zotero-ready PDF copies rather than stored only in sidecar CSV files. For verified external or taxonomic-clue resolutions, embedded fields include title, author, year, DOI, journal, volume, issue, pages, ISSN, source URL, metadata source, and confidence label. Unverified clue rows remain in CSV review outputs and are not written into PDFs.
 
 ## Audit Outputs
 

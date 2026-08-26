@@ -104,6 +104,39 @@ python3 scripts/batlit_prepare_external_metadata_lookup.py \
 
 This writes front-matter clues and search links, including Google Scholar, Crossref, OpenAlex, Semantic Scholar, BHL, and Internet Archive. Google Scholar is used as a human-review link because it does not provide a stable public API for automated scraping.
 
+For old scans and taxonomic excerpts, run the MDD/taxon clue scan. It scans the first ten pages for title-like lines, years, species names, original-description language, type-locality language, and museum/source clues, then creates targeted lookup links. If Mammal Diversity Database CSV exports are placed in `index/mdd/`, the scan cross-references candidate bat names and synonyms against Chiroptera records.
+
+```bash
+python3 scripts/batlit_mdd_citation_clues.py \
+  --run-folder AMNH_YYYYMMDD \
+  --folder new_literature \
+  --pages 10 \
+  --mdd-species-csv index/mdd/MDD_species.csv \
+  --mdd-synonyms-csv index/mdd/MDD_species_synonyms.csv
+```
+
+This writes:
+
+```text
+metadata_enrichment/AMNH_YYYYMMDD/YYYYMMDD_HHMMSS_mdd_citation_clues/
+  mdd_citation_clues.csv
+  metadata_to_embed_template.csv
+  summary.txt
+metadata_enrichment/AMNH_YYYYMMDD/latest_mdd_citation_clues.csv
+```
+
+To embed verified metadata from the template, fill `metadata_to_embed_template.csv`, mark approved rows with `apply_metadata=yes` and `confidence=high`, `curated`, or `verified`, then run:
+
+```bash
+python3 scripts/batlit_mdd_citation_clues.py \
+  --run-folder AMNH_YYYYMMDD \
+  --folder new_literature \
+  --resolved-csv path/to/metadata_to_embed_template.csv \
+  --apply
+```
+
+The script embeds approved title, author, year, DOI, journal, volume, issue, pages, ISSN, source URL, and metadata-source fields into the routed PDF copies.
+
 To initialize/check a fresh workspace:
 
 ```bash
