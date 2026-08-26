@@ -227,18 +227,18 @@ def bat_relevance(text):
 def decide(hash_matches, own_doi_matches, title_matches, text_error, relevance_status, excerpt_mode=False):
     if hash_matches:
         return "duplicate", "exact_md5_hash_match"
-    if own_doi_matches:
-        if excerpt_mode:
-            return "manual_review", "same_source_doi_match_possible_distinct_excerpt"
-        return "duplicate", "front_matter_doi_match"
-    if title_matches:
-        if excerpt_mode:
-            return "manual_review", "same_source_title_author_year_match_possible_distinct_excerpt"
-        return "likely_duplicate", "exact_title_author_year_match"
     if text_error:
         return "manual_review", "text_extraction_failed"
     if relevance_status == "likely_non_bat":
         return "non_bat_review", "likely_non_bat_terms"
+    if own_doi_matches:
+        if excerpt_mode:
+            return "new_literature", "same_source_doi_match_possible_distinct_excerpt"
+        return "duplicate", "front_matter_doi_match"
+    if title_matches:
+        if excerpt_mode:
+            return "new_literature", "same_source_title_author_year_match_possible_distinct_excerpt"
+        return "likely_duplicate", "exact_title_author_year_match"
     return "new_literature", "no_hash_or_front_matter_doi_match"
 
 
