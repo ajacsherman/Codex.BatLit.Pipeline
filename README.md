@@ -81,7 +81,7 @@ processed_runs/AMNH_YYYYMMDD/AMNH_YYYYMMDD_zotero_upload/
 
 AMNH PDFs are still routed into the normal decision folders (`duplicates`, `likely_duplicates`, `new_literature`, `non_bat_review`, and review/failure folders if needed), but they are not split into separate files by source literature collection.
 
-For AMNH, duplicates are not expected because the original description citation list was already compared with the existing BatLit corpus and cross-referenced against available online citation records. Duplicate detection still runs as an audit check; any duplicate or likely duplicate result should be reviewed as an exception.
+For AMNH, duplicates are not expected because the original description citation list was already compared with the existing BatLit corpus and cross-referenced against available online citation records. Duplicate detection still runs as an audit check, but AMNH runs use `--excerpt-mode`: exact file hashes can still identify a true duplicate, while shared title-page metadata or source-work DOI/title matches are recorded as possible same-source excerpts rather than routed as duplicates. This matters for books where multiple species descriptions come from different pages of the same source work.
 
 To initialize/check a fresh workspace:
 

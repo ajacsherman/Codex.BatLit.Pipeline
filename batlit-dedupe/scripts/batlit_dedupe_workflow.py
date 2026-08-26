@@ -224,12 +224,16 @@ def bat_relevance(text):
     return "unknown", ""
 
 
-def decide(hash_matches, own_doi_matches, title_matches, text_error, relevance_status):
+def decide(hash_matches, own_doi_matches, title_matches, text_error, relevance_status, excerpt_mode=False):
     if hash_matches:
         return "duplicate", "exact_md5_hash_match"
     if own_doi_matches:
+        if excerpt_mode:
+            return "manual_review", "same_source_doi_match_possible_distinct_excerpt"
         return "duplicate", "front_matter_doi_match"
     if title_matches:
+        if excerpt_mode:
+            return "manual_review", "same_source_title_author_year_match_possible_distinct_excerpt"
         return "likely_duplicate", "exact_title_author_year_match"
     if text_error:
         return "manual_review", "text_extraction_failed"
@@ -238,7 +242,7 @@ def decide(hash_matches, own_doi_matches, title_matches, text_error, relevance_s
     return "new_literature", "no_hash_or_front_matter_doi_match"
 
 
-def add_incoming_batch_duplicate_flags(rows):
+def add_incoming_batch_duplicate_flags(rows, excerpt_mode=False):
     by_md5 = {}
     by_doi = {}
     by_title = {}
@@ -273,13 +277,18 @@ def add_incoming_batch_duplicate_flags(rows):
         for row in ordered:
             if row["incoming_batch_duplicate_status"]:
                 continue
-            row["incoming_batch_duplicate_status"] = (
-                "primary_in_batch" if row is primary else "duplicate_in_batch"
-            )
+            if excerpt_mode and reason != "exact_md5_hash_match":
+                row["incoming_batch_duplicate_status"] = "same_source_in_batch"
+            else:
+                row["incoming_batch_duplicate_status"] = (
+                    "primary_in_batch" if row is primary else "duplicate_in_batch"
+                )
             row["incoming_batch_duplicate_reason"] = reason
             row["incoming_batch_primary_file"] = primary.get("file", "")
             row["incoming_batch_match_files"] = files
 
+            if excerpt_mode and reason != "exact_md5_hash_match":
+                continue
             if row is primary:
                 continue
             if row.get("batlit_match_scope") == "batlit_corpus":
@@ -333,6 +342,11 @@ def main():
         type=int,
         default=10,
         help="number of leading pages to scan for citation metadata and DOI candidates",
+    )
+    parser.add_argument(
+        "--excerpt-mode",
+        action="store_true",
+        help="treat shared source-work metadata as possible distinct excerpts rather than duplicate evidence",
     )
     args = parser.parse_args()
 
@@ -406,7 +420,14 @@ def main():
             full_keyword_text,
         ]))
         title_matches = likely_title_matches(title, authors, year, refs_by_title)
-        decision, decision_reason = decide(hash_matches, own_doi_matches, title_matches, text_error, relevance_status)
+        decision, decision_reason = decide(
+            hash_matches,
+            own_doi_matches,
+            title_matches,
+            text_error,
+            relevance_status,
+            excerpt_mode=args.excerpt_mode,
+        )
         match_rows = hash_matches or own_doi_matches or title_matches
         (
             batlit_title,
@@ -442,7 +463,7 @@ def main():
             "text_error": text_error,
         })
 
-    add_incoming_batch_duplicate_flags(dedupe_rows)
+    add_incoming_batch_duplicate_flags(dedupe_rows, excerpt_mode=args.excerpt_mode)
 
     for row in dedupe_rows:
         if row["decision"] in {"new_literature", "manual_review"}:

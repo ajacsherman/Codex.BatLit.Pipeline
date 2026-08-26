@@ -16,7 +16,7 @@ Incoming PDFs are screened before Zotero import. The workflow computes MD5 and S
 
 ## AMNH Batch Handling
 
-The AMNH papers are treated as a single source-level acquisition batch rather than being split into separate files by individual literature collection. The active naming convention is source-first and date-only, such as `AMNH_20260826`. AMNH duplicates are not expected because the original description citation list was previously compared with the existing BatLit corpus and cross-referenced against available online citation records. The pipeline still performs hash, DOI, and title/author/year duplicate checks as a sanity audit; any duplicate or likely duplicate detected in the AMNH batch should be treated as an exception for manual review.
+The AMNH papers are treated as a single source-level acquisition batch rather than being split into separate files by individual literature collection. The active naming convention is source-first and date-only, such as `AMNH_20260826`. AMNH duplicates are not expected because the original description citation list was previously compared with the existing BatLit corpus and cross-referenced against available online citation records. The pipeline still performs duplicate checks as a sanity audit, but AMNH runs use excerpt-aware matching. Exact file hashes can identify true duplicate PDFs. Shared title-page metadata, source-work DOI matches, or title/author/year matches are recorded as possible same-source excerpts rather than automatically routed as duplicates, because multiple species descriptions can come from different pages of the same book.
 
 ## Duplicate Classification
 

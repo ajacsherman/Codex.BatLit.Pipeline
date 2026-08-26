@@ -45,6 +45,11 @@ def main():
         help="Number of leading PDF pages to scan for citation metadata and DOI candidates.",
     )
     parser.add_argument(
+        "--excerpt-mode",
+        action="store_true",
+        help="Treat shared source-work metadata as possible distinct excerpts rather than duplicate evidence.",
+    )
+    parser.add_argument(
         "--time-stamps",
         action="store_true",
         help="Use YYYYMMDD_HHMMSS instead of date-only YYYYMMDD for generated collection files.",
@@ -61,6 +66,7 @@ def main():
     base = Path(args.base).resolve()
     scripts = base / "scripts"
     collection_slug = slugify(args.collection_name)
+    excerpt_mode = args.excerpt_mode or collection_slug.upper().startswith("AMNH")
     stamp_format = "%Y%m%d_%H%M%S" if args.time_stamps else "%Y%m%d"
     run_date = args.run_date or datetime.now().strftime(stamp_format)
     run_folder = args.run_folder or unique_dir(base / "processed_runs" / f"{collection_slug}_{run_date}").name
@@ -97,7 +103,7 @@ def main():
             str(base),
             "--front-matter-pages",
             str(args.front_matter_pages),
-        ],
+        ] + (["--excerpt-mode"] if excerpt_mode else []),
         dry_run=args.dry_run,
     )
 
