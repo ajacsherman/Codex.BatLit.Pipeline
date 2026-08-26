@@ -1,5 +1,6 @@
 # Local PDFs and derived document artifacts
 batlit-dedupe/incoming/*
+batlit-dedupe/amnh_incoming/*
 batlit-dedupe/processed/**/*
 batlit-dedupe/processed_runs/**/*
 batlit-dedupe/work/**/*
@@ -12,6 +13,8 @@ batlit-dedupe/metadata_enrichment/**/*
 
 # Keep folder structure
 !batlit-dedupe/incoming/.gitkeep
+!batlit-dedupe/amnh_incoming/
+!batlit-dedupe/amnh_incoming/.gitkeep
 !batlit-dedupe/processed/
 !batlit-dedupe/processed/**/
 !batlit-dedupe/processed/duplicates/.gitkeep
@@ -37,6 +40,7 @@ batlit-dedupe/metadata_enrichment/**/*
 
 # BatLit index can be regenerated
 batlit-dedupe/index/refs.csv
+batlit-dedupe/index/*_literature_fingerprint_index.csv
 
 # Python cache
 __pycache__/
