@@ -35,6 +35,26 @@ def split_people(value: str) -> list[str]:
     return [clean(part) for part in parts if clean(part)]
 
 
+def ris_person(value: str) -> str:
+    """Return a RIS-safe personal-name string for Zotero import."""
+    text = clean(value)
+    if not text:
+        return ""
+    if "," in text:
+        return text
+    tokens = text.split()
+    if len(tokens) == 1:
+        return text
+    suffix = ""
+    if tokens[-1].rstrip(".").lower() in {"jr", "sr", "ii", "iii", "iv"}:
+        suffix = tokens.pop()
+    last = tokens.pop()
+    first = " ".join(tokens)
+    if suffix:
+        return f"{last}, {first}, {suffix}"
+    return f"{last}, {first}"
+
+
 def page_start_end(value: str) -> tuple[str, str]:
     text = clean(value)
     match = re.match(r"^([A-Za-z]*\d+)\s*[-–]\s*([A-Za-z]*\d+)$", text)
@@ -90,7 +110,7 @@ def write_ris(path: Path, rows: list[dict[str, str]]) -> None:
             handle.write(f"TY  - {ris_type(row)}\n")
             write_ris_line(handle, "T1", row.get("title"))
             for author in split_people(clean(row.get("authors"))):
-                write_ris_line(handle, "AU", author)
+                write_ris_line(handle, "AU", ris_person(author))
             write_ris_line(handle, "PY", row.get("year"))
             write_ris_line(handle, "Y1", row.get("year"))
             write_ris_line(handle, "T2", journal)
@@ -225,6 +245,8 @@ def main() -> None:
             "",
             "Use Zotero File > Import and select the .ris file in this folder.",
             "The RIS records include relative L1 links to the PDFs copied beside it.",
+            "Do not drag these PDFs in separately and do not run Zotero Retrieve Metadata on them after import.",
+            "Retrieve Metadata ignores much of the curated RIS/PDF provenance and may replace good fields with partial web-service guesses.",
             "Dragging the PDFs alone may still leave scanned historical documents as standalone attachments because Zotero does not reliably use PDF document properties for parent-item metadata.",
             "",
             f"Records: {len(rows)}",
