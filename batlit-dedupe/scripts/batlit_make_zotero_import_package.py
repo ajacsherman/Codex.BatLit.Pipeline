@@ -35,6 +35,14 @@ def split_people(value: str) -> list[str]:
     return [clean(part) for part in parts if clean(part)]
 
 
+def page_start_end(value: str) -> tuple[str, str]:
+    text = clean(value)
+    match = re.match(r"^([A-Za-z]*\d+)\s*[-–]\s*([A-Za-z]*\d+)$", text)
+    if match:
+        return match.group(1), match.group(2)
+    return text, ""
+
+
 def ris_type(row: dict[str, str]) -> str:
     journal = clean(row.get("journal"))
     pages = clean(row.get("pages"))
@@ -77,18 +85,25 @@ def write_ris(path: Path, rows: list[dict[str, str]]) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         for row in rows:
             filename = clean(row.get("enhanced_filename")) or clean(row.get("filename"))
+            start_page, end_page = page_start_end(clean(row.get("pages")))
+            journal = clean(row.get("journal"))
             handle.write(f"TY  - {ris_type(row)}\n")
-            write_ris_line(handle, "TI", row.get("title"))
+            write_ris_line(handle, "T1", row.get("title"))
             for author in split_people(clean(row.get("authors"))):
                 write_ris_line(handle, "AU", author)
             write_ris_line(handle, "PY", row.get("year"))
-            write_ris_line(handle, "JO", row.get("journal"))
+            write_ris_line(handle, "Y1", row.get("year"))
+            write_ris_line(handle, "T2", journal)
+            write_ris_line(handle, "JF", journal)
+            write_ris_line(handle, "JO", journal)
+            write_ris_line(handle, "JA", journal)
             write_ris_line(handle, "VL", row.get("volume"))
             write_ris_line(handle, "IS", row.get("issue"))
-            write_ris_line(handle, "SP", row.get("pages"))
+            write_ris_line(handle, "SP", start_page)
+            write_ris_line(handle, "EP", end_page)
             write_ris_line(handle, "DO", row.get("doi"))
             write_ris_line(handle, "SN", row.get("issn"))
-            write_ris_line(handle, "AB", row.get("abstract"))
+            write_ris_line(handle, "N2", row.get("abstract"))
             write_ris_line(handle, "UR", row.get("source_url"))
             write_ris_line(handle, "KW", "BatLit")
             write_ris_line(handle, "KW", "AMNH")

@@ -113,6 +113,8 @@ python3 scripts/batlit_make_zotero_import_package.py \
 
 The package contains the metadata-enhanced PDFs, one RIS file, one BibTeX file, a CSV manifest, and `README_IMPORT.txt`. For scanned historical PDFs, import the RIS file through Zotero `File > Import`; Zotero may not create parent items reliably if the PDFs are dragged in by themselves, even when document-info metadata has been embedded.
 
+If Zotero creates parent items but drops fields, rebuild the package with the current exporter. The exporter writes Zotero-friendly RIS fields for journal articles (`T1`, `T2`, `JF`, `JO`, `JA`, `PY`, `Y1`, `SP`, `EP`, `N2`) and records stable source URLs when available. For example, the Lazell and Koopman 1985 Florida Scientist record should resolve to the JSTOR stable page `https://www.jstor.org/stable/24319878`.
+
 This writes front-matter clues and search links, including Google Scholar, Crossref, OpenAlex, Semantic Scholar, BHL, and Internet Archive. Google Scholar is used as a human-review link because it does not provide a stable public API for automated scraping.
 
 For old scans and taxonomic excerpts, run the MDD/taxon clue scan. It scans the first ten pages for title-like lines, years, species names, original-description language, type-locality language, and museum/source clues, then creates targeted lookup links. If Mammal Diversity Database CSV exports are placed in `index/mdd/`, the scan cross-references candidate bat names and synonyms against Chiroptera records.
