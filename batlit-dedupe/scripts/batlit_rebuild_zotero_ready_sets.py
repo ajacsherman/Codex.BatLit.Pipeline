@@ -51,8 +51,11 @@ def curated_lookup(report: Path) -> dict[str, dict[str, str]]:
         confidence = row.get("confidence", "").strip().lower()
         status = row.get("status", "").strip().lower()
         enhanced = row.get("enhanced_filename", "").strip()
+        routed = row.get("routed_filename", "").strip()
         if enhanced and confidence in READY_CONFIDENCE and "embedded" in status:
             lookup[enhanced] = row
+            if routed:
+                lookup[routed] = row
     return lookup
 
 
@@ -92,9 +95,11 @@ def main() -> None:
     for pdf in sorted(source.glob("*.pdf"), key=lambda path: path.name.lower()):
         metadata = curated.get(pdf.name)
         if metadata:
-            shutil.copy2(pdf, ready_dir / pdf.name)
+            output_name = metadata.get("enhanced_filename", "").strip() or pdf.name
+            shutil.copy2(pdf, ready_dir / output_name)
             ready_rows.append({
-                "filename": pdf.name,
+                "filename": output_name,
+                "source_filename": pdf.name,
                 "decision": "zotero_ready",
                 "reason": "curated metadata embedded",
                 "title": metadata.get("title", ""),

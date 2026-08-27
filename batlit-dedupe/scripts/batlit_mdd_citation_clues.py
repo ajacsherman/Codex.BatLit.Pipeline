@@ -88,8 +88,10 @@ RESOLVED_FIELDS = [
     "issue",
     "pages",
     "issn",
+    "abstract",
     "source_url",
     "metadata_source",
+    "evidence_sources",
     "notes",
 ]
 
@@ -396,8 +398,10 @@ def embed_pdf_metadata(pdf_path, metadata):
         "/BatLitIssue": metadata.get("issue", ""),
         "/BatLitPages": metadata.get("pages", ""),
         "/BatLitISSN": metadata.get("issn", ""),
+        "/BatLitAbstract": metadata.get("abstract", ""),
         "/BatLitMetadataSource": metadata.get("metadata_source", ""),
         "/BatLitMetadataSourceURL": metadata.get("source_url", ""),
+        "/BatLitEvidenceSources": metadata.get("evidence_sources", ""),
         "/BatLitMetadataConfidence": metadata.get("confidence", ""),
     }
     existing.update({key: clean(value) for key, value in updates.items() if clean(value)})
@@ -527,8 +531,10 @@ def main():
                 "issue": "",
                 "pages": "",
                 "issn": "",
+                "abstract": "",
                 "source_url": "",
                 "metadata_source": "",
+                "evidence_sources": "",
                 "notes": "",
             })
         except Exception as exc:
