@@ -153,12 +153,53 @@ python3 scripts/batlit_metadata_investigation_queue.py \
 
 The queue reuses the pipeline's parsimonious text strategy: native PDF text first, then OCR alternatives only when front-matter text is weak. It writes first-ten-page text, rendered first-page evidence for annotations/title layouts, issue flags, distinctive quote searches, and next-action notes. For collections like AMNH, most target papers are expected to be cited in Mammal Diversity Database Chiroptera species or family records, so MDD accepted names, synonyms, and authority links should be used as a priority lookup layer whenever local MDD CSV exports are available in `index/mdd/`.
 
+The default investigation order is:
+
+```text
+1. Inspect the first 3 pages, including PDF annotation text and rendered page evidence.
+2. Cross-reference local MDD/AMNH priority or original-description citation lists if available.
+3. If unresolved, expand text extraction to the first 10 pages.
+4. Build targeted searches for Google Scholar, Crossref, OpenAlex, BHL, and Internet Archive.
+5. If still unresolved, search with a distinctive full-text sentence from the paper.
+6. Embed metadata only after high-confidence or curated evidence is recorded.
+```
+
+Place local MDD/AMNH priority exports here:
+
+```text
+batlit-dedupe/index/mdd/
+```
+
+For taxonomic-paper batches, refresh the latest MDD export before metadata investigation whenever possible. Filter the export to `order = Chiroptera`, then use accepted names, synonyms, authority citations, and `authoritySpeciesLink`/BHL/DOI links as the first citation-clue layer. As of 2026-08-27, the current MDD release is v2.5, released 2026-07-28; do not assume that remains current in future runs.
+
+Current local AMNH/MDD priority tracker:
+
+```text
+batlit-dedupe/index/mdd/AMNH_Bat_Original_Descriptions_Tracker.csv
+```
+
+Large reference-source PDFs can be stored locally under `batlit-dedupe/index/reference_sources/`; they are intentionally ignored by Git. The HMW 2019 reference list is stored locally as:
+
+```text
+batlit-dedupe/index/reference_sources/HMW_2019_reference_list/HMW_2019_reference_list.pdf
+```
+
+Then pass the file to the queue:
+
+```bash
+python3 scripts/batlit_metadata_investigation_queue.py \
+  --run-folder AMNH_YYYYMMDD \
+  --folder new_literature \
+  --mdd-priority-csv index/mdd/amnh_mdd_priority_original_descriptions.csv
+```
+
 For historical scans whose metadata is already flagged as weak, run the deeper OCR comparison:
 
 ```bash
 python3 scripts/batlit_metadata_investigation_queue.py \
   --run-folder AMNH_YYYYMMDD \
   --folder new_literature \
+  --initial-pages 3 \
   --pages 10 \
   --ocr-flagged-records
 ```

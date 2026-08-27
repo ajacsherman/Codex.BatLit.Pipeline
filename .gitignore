@@ -43,6 +43,9 @@ batlit-dedupe/index/refs.csv
 batlit-dedupe/index/*_literature_fingerprint_index.csv
 batlit-dedupe/index/mdd/*.csv
 !batlit-dedupe/index/mdd/.gitkeep
+batlit-dedupe/index/reference_sources/**/*
+!batlit-dedupe/index/reference_sources/
+!batlit-dedupe/index/reference_sources/.gitkeep
 
 # Python cache
 __pycache__/

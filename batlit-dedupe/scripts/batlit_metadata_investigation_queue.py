@@ -40,6 +40,11 @@ FIELDNAMES = [
     "front_matter_text_score",
     "full_text_score",
     "ocr_attempts",
+    "pages_examined",
+    "annotation_clues",
+    "mdd_priority_status",
+    "mdd_priority_matches",
+    "mdd_priority_queries",
     "detected_book_title",
     "detected_editors",
     "detected_chapter_title",
@@ -77,6 +82,10 @@ def safe_stem(value):
     return re.sub(r"[^A-Za-z0-9._-]+", "_", Path(value).stem).strip("_") or "pdf"
 
 
+def normalize(value):
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold()).strip()
+
+
 def issue_flags(row):
     flags = []
     filename = clean(row.get("routed_filename"))
@@ -107,7 +116,103 @@ def search_links(query):
     }
 
 
-def investigation_query(row, layout, titles, quote):
+def load_mdd_priority(path):
+    if not path:
+        return [], "not_configured"
+    priority_path = Path(path)
+    if not priority_path.exists():
+        return [], f"missing:{priority_path}"
+    rows = []
+    for row in read_csv(priority_path):
+        values = {str(k or "").strip().casefold(): clean(v) for k, v in row.items()}
+        def by_exact_or_contains(*needles):
+            for needle in needles:
+                if needle in values and values[needle]:
+                    return values[needle]
+            for key, value in values.items():
+                if value and any(needle in key for needle in needles):
+                    return value
+            return ""
+        text = " ".join(value for value in values.values() if value)
+        citation = by_exact_or_contains("full citation", "citation", "reference")
+        authority = by_exact_or_contains("author and date", "authorityspecies", "authority")
+        link = by_exact_or_contains("doi or pdf", "mdd taxon url", "authorityspecieslink", "url", "link")
+        species = by_exact_or_contains("species", "scientificname", "sciname", "acceptedname", "taxon")
+        original_name = by_exact_or_contains("original name", "originalname", "synonym")
+        rows.append({
+            "label": clean(
+                citation
+                or authority
+                or values.get("title")
+                or text[:220]
+            ),
+            "taxon": clean(
+                species
+                or original_name
+            ),
+            "query": clean(
+                values.get("query")
+                or values.get("search_query")
+                or citation
+                or " ".join(item for item in [species, original_name, authority, citation] if item)
+                or text[:350]
+            ),
+            "haystack": normalize(" ".join([text, species, original_name, authority, citation, link])),
+        })
+    return rows, f"loaded:{priority_path}:{len(rows)}"
+
+
+def mdd_priority_matches(priority_rows, evidence_text, limit=5):
+    if not priority_rows:
+        return [], []
+    evidence = normalize(evidence_text)
+    evidence_tokens = {token for token in evidence.split() if len(token) >= 5}
+    scored = []
+    for row in priority_rows:
+        taxon = normalize(row.get("taxon"))
+        label = normalize(row.get("label"))
+        score = 0
+        if taxon and taxon in evidence:
+            score += 50
+        if label and label[:80] and label[:80] in evidence:
+            score += 35
+        row_tokens = {token for token in row["haystack"].split() if len(token) >= 5}
+        score += len(evidence_tokens & row_tokens)
+        if score >= 4:
+            scored.append((score, row))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    matches = [f"{score}: {row['label']}" for score, row in scored[:limit]]
+    queries = [row["query"] for score, row in scored[:limit] if row.get("query")]
+    return matches, queries
+
+
+def annotation_clues(pdf_path, max_pages=3):
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        return ""
+    clues = []
+    try:
+        reader = PdfReader(str(pdf_path))
+        for page_index, page in enumerate(reader.pages[:max_pages], start=1):
+            for annot_ref in page.get("/Annots", []) or []:
+                annot = annot_ref.get_object()
+                parts = [
+                    annot.get("/Contents", ""),
+                    annot.get("/T", ""),
+                    annot.get("/Subj", ""),
+                ]
+                text = clean(" ".join(str(part) for part in parts if part))
+                if text:
+                    clues.append(f"p{page_index}: {text}")
+    except Exception as exc:
+        return f"annotation_read_error:{type(exc).__name__}: {exc}"
+    return " | ".join(clues[:12])
+
+
+def investigation_query(row, layout, titles, quote, annotation_text="", mdd_queries=None):
+    if mdd_queries:
+        return clean(mdd_queries[0])[:700]
     chapter_author = layout.get("chapter_author", "")
     chapter_title = layout.get("chapter_title", "")
     book_title = layout.get("book_title", "")
@@ -134,6 +239,8 @@ def investigation_query(row, layout, titles, quote):
         pieces.append(current_title)
     if quote:
         pieces.append(f"\"{quote}\"")
+    if annotation_text and len(annotation_text) < 250:
+        pieces.append(annotation_text)
     return clean(" ".join(pieces))[:700]
 
 
@@ -151,12 +258,26 @@ def render_pages(pdf_path, output_dir, pages=2):
     return [str(rendered[index]) if index < len(rendered) else "" for index in range(2)]
 
 
+def should_expand_to_fallback(flags, layout, titles, quote, annotation_text, mdd_matches):
+    if layout.get("chapter_author") and layout.get("chapter_title"):
+        return False
+    useful_titles = [title for title in titles if not NOISE_RE.search(title)]
+    if mdd_matches:
+        return False
+    if annotation_text and re.search(r"\b(17|18|19|20)\d{2}\b", annotation_text):
+        return False
+    if useful_titles and quote and "blank_author" not in flags:
+        return False
+    return True
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Create a first-10-page metadata investigation queue for weak PDF records.")
+    parser = argparse.ArgumentParser(description="Create a staged metadata investigation queue for weak PDF records.")
     parser.add_argument("--base", default=".", help="batlit-dedupe folder")
     parser.add_argument("--run-folder", required=True, help="processed_runs folder name")
     parser.add_argument("--folder", default="new_literature", help="routed folder")
-    parser.add_argument("--pages", type=int, default=10, help="leading pages to inspect")
+    parser.add_argument("--initial-pages", type=int, default=3, help="leading pages to inspect first")
+    parser.add_argument("--pages", type=int, default=10, help="fallback leading pages to inspect if first pass is unresolved")
     parser.add_argument("--render-pages", type=int, default=2, help="number of leading pages to render")
     parser.add_argument("--limit", type=int, default=0, help="process only the first N queued records")
     parser.add_argument("--only-filename", default="", help="process only a routed filename containing this text")
@@ -167,6 +288,7 @@ def main():
         help="try OCR fallbacks for queued records even when native text is abundant",
     )
     parser.add_argument("--no-ocr-fallback", action="store_true", help="disable OCR fallback attempts")
+    parser.add_argument("--mdd-priority-csv", default="", help="optional MDD/AMNH priority original-description citation CSV")
     parser.add_argument("--force-text", action="store_true", help="refresh cached extracted text")
     args = parser.parse_args()
 
@@ -180,6 +302,7 @@ def main():
     output_dir = base / "metadata_enrichment" / args.run_folder / f"{stamp}_metadata_investigation_queue"
     text_dir = base / "work" / "metadata_investigation_text" / args.run_folder / args.folder
     ocr_dir = base / "work" / "metadata_investigation_ocr" / args.run_folder / args.folder
+    priority_rows, priority_status = load_mdd_priority(args.mdd_priority_csv)
     rows_out = []
 
     queued_seen = 0
@@ -195,7 +318,7 @@ def main():
             break
         pdf_path = folder / routed
         stem = safe_stem(routed)
-        text_path = (text_dir / stem).with_suffix(f".pages1-{args.pages}.txt")
+        text_path = (text_dir / stem).with_suffix(f".pages1-{args.initial_pages}.txt")
         evidence_dir = output_dir / "rendered_pages" / stem
         try:
             min_score = 999999 if args.ocr_flagged_records else args.min_front_text_score
@@ -203,20 +326,58 @@ def main():
                 pdf_path,
                 text_dir,
                 ocr_dir,
-                args.pages,
+                args.initial_pages,
                 force=args.force_text,
                 min_front_score=min_score,
                 ocr_fallback=not args.no_ocr_fallback,
             )
             text_path.parent.mkdir(parents=True, exist_ok=True)
             text_path.write_text(text, encoding="utf-8", errors="replace")
+            pages_examined = args.initial_pages
+            annot_text = annotation_clues(pdf_path, max_pages=args.initial_pages)
             lines = useful_lines(text)
             layout = extract_book_chapter_metadata(lines)
             titles = title_like_lines(lines)
             quote = distinctive_quote(text)
             clues = clue_lines(lines, [])
+            evidence_text = " ".join([
+                row.get("title", ""),
+                row.get("authors", ""),
+                row.get("year", ""),
+                text,
+                annot_text,
+            ])
+            matches, mdd_queries = mdd_priority_matches(priority_rows, evidence_text)
+            if args.pages > args.initial_pages and should_expand_to_fallback(flags, layout, titles, quote, annot_text, matches):
+                text_path = (text_dir / stem).with_suffix(f".pages1-{args.pages}.txt")
+                first, text, full_text, method, front_score, full_score, attempts, text_error = best_text_extraction(
+                    pdf_path,
+                    text_dir,
+                    ocr_dir,
+                    args.pages,
+                    force=args.force_text,
+                    min_front_score=min_score,
+                    ocr_fallback=not args.no_ocr_fallback,
+                )
+                text_path.parent.mkdir(parents=True, exist_ok=True)
+                text_path.write_text(text, encoding="utf-8", errors="replace")
+                pages_examined = args.pages
+                annot_text = annotation_clues(pdf_path, max_pages=min(args.pages, 10))
+                lines = useful_lines(text)
+                layout = extract_book_chapter_metadata(lines)
+                titles = title_like_lines(lines)
+                quote = distinctive_quote(text)
+                clues = clue_lines(lines, [])
+                evidence_text = " ".join([
+                    row.get("title", ""),
+                    row.get("authors", ""),
+                    row.get("year", ""),
+                    text,
+                    annot_text,
+                ])
+                matches, mdd_queries = mdd_priority_matches(priority_rows, evidence_text)
             rendered = render_pages(pdf_path, evidence_dir, pages=args.render_pages)
-            query = investigation_query(row, layout, titles, quote)
+            query = investigation_query(row, layout, titles, quote, annot_text, mdd_queries)
             links = search_links(query)
             rows_out.append({
                 "status": "needs_investigation",
@@ -231,6 +392,11 @@ def main():
                 "front_matter_text_score": front_score,
                 "full_text_score": full_score,
                 "ocr_attempts": attempts,
+                "pages_examined": pages_examined,
+                "annotation_clues": annot_text,
+                "mdd_priority_status": priority_status,
+                "mdd_priority_matches": " | ".join(matches),
+                "mdd_priority_queries": " | ".join(mdd_queries),
                 "detected_book_title": layout.get("book_title", ""),
                 "detected_editors": layout.get("editors", ""),
                 "detected_chapter_title": layout.get("chapter_title", ""),
@@ -259,6 +425,11 @@ def main():
                 "front_matter_text_score": "",
                 "full_text_score": "",
                 "ocr_attempts": "",
+                "pages_examined": "",
+                "annotation_clues": "",
+                "mdd_priority_status": priority_status,
+                "mdd_priority_matches": "",
+                "mdd_priority_queries": "",
                 "recommended_action": f"{type(exc).__name__}: {exc}",
             })
 
@@ -270,7 +441,16 @@ def main():
     if not args.limit and not args.only_filename:
         write_csv(latest, rows_out)
     (output_dir / "summary.txt").write_text(
-        f"Run folder: {args.run_folder}\nRouted folder: {args.folder}\nQueued records: {len(rows_out)}\nQueue: {queue}\n",
+        "\n".join([
+            f"Run folder: {args.run_folder}",
+            f"Routed folder: {args.folder}",
+            f"Initial pages: {args.initial_pages}",
+            f"Fallback pages: {args.pages}",
+            f"MDD priority status: {priority_status}",
+            f"Queued records: {len(rows_out)}",
+            f"Queue: {queue}",
+            "",
+        ]),
         encoding="utf-8",
     )
     print(queue)
