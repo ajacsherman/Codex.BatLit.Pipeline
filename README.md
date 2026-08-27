@@ -164,6 +164,25 @@ The default investigation order is:
 6. Embed metadata only after high-confidence or curated evidence is recorded.
 ```
 
+After metadata embedding, rebuild the final Zotero-facing sets from the curated metadata report rather than trusting earlier routed filenames or noisy OCR guesses:
+
+```bash
+python3 scripts/batlit_rebuild_zotero_ready_sets.py \
+  --base . \
+  --run-folder AMNH_YYYYMMDD \
+  --curated-report processed_runs/AMNH_YYYYMMDD/AMNH_YYYYMMDD_enhanced_metadata_report.csv \
+  --queue-csv metadata_enrichment/AMNH_YYYYMMDD/latest_metadata_investigation_queue.csv
+```
+
+This creates:
+
+```text
+metadata_enrichment/AMNH_YYYYMMDD/Zotero_Ready_PDFs/
+metadata_enrichment/AMNH_YYYYMMDD/Needs_Metadata_Investigation_PDFs/
+```
+
+`Zotero_Ready_PDFs/` is strict: a PDF must appear in the curated embedded metadata report with `status=embedded` and `confidence=curated`, `verified`, or `high`. All other PDFs remain in `Needs_Metadata_Investigation_PDFs/` until their citation evidence is confirmed and embedded.
+
 Place local MDD/AMNH priority exports here:
 
 ```text

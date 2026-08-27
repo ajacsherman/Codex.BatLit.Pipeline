@@ -439,7 +439,10 @@ def main():
     write_csv(queue, rows_out)
     write_csv(timestamped, rows_out)
     if not args.limit and not args.only_filename:
-        write_csv(latest, rows_out)
+        try:
+            write_csv(latest, rows_out)
+        except PermissionError as exc:
+            print(f"WARNING: could not update latest queue CSV because it is locked: {latest} ({exc})")
     (output_dir / "summary.txt").write_text(
         "\n".join([
             f"Run folder: {args.run_folder}",

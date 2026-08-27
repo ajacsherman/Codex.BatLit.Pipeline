@@ -62,6 +62,8 @@ After routing, bibliography metadata is embedded into the routed PDF copies usin
 
 When citation metadata is improved after the initial run, the updated fields are embedded into Zotero-ready PDF copies rather than stored only in sidecar CSV files. For verified external or taxonomic-clue resolutions, embedded fields include title, author, year, DOI, journal, volume, issue, pages, ISSN, source URL, metadata source, and confidence label. Unverified clue rows remain in CSV review outputs and are not written into PDFs.
 
+The final Zotero upload set is rebuilt from the curated embedded metadata report, not from preliminary routed filenames. A PDF is considered Zotero ready only when the report records `status=embedded` and a confidence label of `curated`, `verified`, or `high`. PDFs with unknown authors, placeholder titles, suspicious taxonomic years, or unverified MDD/search clues remain in `Needs_Metadata_Investigation_PDFs/`. During the 2026-08-27 AMNH rebuild, this stricter gate placed only the curated Koopman 1988 chapter in `Zotero_Ready_PDFs/` and moved the other 24 PDFs into the investigation folder.
+
 ## Audit Outputs
 
 The pipeline writes CSV and XLSX bibliographies for each routed folder, collection-level action logs, routing reports, dedupe reports, metadata embedding reports, and timestamped manifests. These files preserve the decisions made for each PDF and allow later reconstruction of what was added, excluded, or sent to manual review.
