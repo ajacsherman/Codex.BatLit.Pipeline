@@ -102,6 +102,17 @@ python3 scripts/batlit_prepare_external_metadata_lookup.py \
   --pages 10
 ```
 
+For curated AMNH outputs, generate a Zotero import package rather than relying on PDF drag-and-drop recognition alone:
+
+```bash
+python3 scripts/batlit_make_zotero_import_package.py \
+  --enrichment-folder metadata_enrichment/AMNH_YYYYMMDD \
+  --metadata-csv metadata_enrichment/AMNH_YYYYMMDD/AMNH_YYYYMMDD_resolved_metadata_pass1_YYYYMMDD.csv \
+  --package-name AMNH_YYYYMMDD_Zotero_Import_Package
+```
+
+The package contains the metadata-enhanced PDFs, one RIS file, one BibTeX file, a CSV manifest, and `README_IMPORT.txt`. For scanned historical PDFs, import the RIS file through Zotero `File > Import`; Zotero may not create parent items reliably if the PDFs are dragged in by themselves, even when document-info metadata has been embedded.
+
 This writes front-matter clues and search links, including Google Scholar, Crossref, OpenAlex, Semantic Scholar, BHL, and Internet Archive. Google Scholar is used as a human-review link because it does not provide a stable public API for automated scraping.
 
 For old scans and taxonomic excerpts, run the MDD/taxon clue scan. It scans the first ten pages for title-like lines, years, species names, original-description language, type-locality language, and museum/source clues, then creates targeted lookup links. If Mammal Diversity Database CSV exports are placed in `index/mdd/`, the scan cross-references candidate bat names and synonyms against Chiroptera records.
