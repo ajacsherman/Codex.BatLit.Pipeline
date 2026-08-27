@@ -64,6 +64,18 @@ When citation metadata is improved after the initial run, the updated fields are
 
 The final Zotero upload set is rebuilt from the curated embedded metadata report, not from preliminary routed filenames. A PDF is considered Zotero ready only when the report records `status=embedded` and a confidence label of `curated`, `verified`, or `high`. PDFs with unknown authors, placeholder titles, suspicious taxonomic years, or unverified MDD/search clues remain in `Needs_Metadata_Investigation_PDFs/`. During the 2026-08-27 AMNH rebuild, this stricter gate placed only the curated Koopman 1988 chapter in `Zotero_Ready_PDFs/` and moved the other 24 PDFs into the investigation folder.
 
+On 2026-08-27, a first AMNH citation-resolution pass used local first-page/first-ten-page evidence plus MDD, BHL, Zenodo, Google Books, INIST/Pascal, and indexed scholarly reference lists to embed richer metadata into 21 additional PDFs. The active AMNH ready set therefore contains 22 PDFs with embedded citation metadata, source URLs, evidence-source notes, confidence labels, and short abstract/summary fields. The remaining unresolved records are `Orig, 2026.pdf`, `Unknown, 1959.pdf`, and `Unknown, 1973.pdf`; these remain in the investigation folder until enough evidence exists to embed metadata safely.
+
+Superseded AMNH clue folders, stale queues, older ready/needs splits, troubleshooting copies, and stray document copies are archived under `batlit-dedupe/archive/`. Active metadata-enrichment folders should contain only current Zotero-ready PDFs, current needs-investigation PDFs, current resolved-metadata CSVs, and current queue/readme files.
+
+## Plazi, BLR, And BHL Prior Art
+
+The BatLit workflow overlaps with biodiversity-literature infrastructure developed by Plazi, Zenodo, Pensoft, and BHL. Plazi TreatmentBank liberates data from taxonomic publications and disseminates taxonomic treatments, treatment citations, figures, tables, material citations, bibliographic references, and links to GBIF and other biodiversity infrastructures. The Biodiversity Literature Repository (BLR) is the Zenodo-based FAIR repository for publications, treatments, and figures enhanced with persistent identifiers and rich metadata. Plazi tools such as GoldenGATE Imagine and services such as RefBank are relevant models for extraction, quality control, and reference cleanup.
+
+BHL is especially relevant for historical bat literature because it provides open bibliographic metadata, article/part records, page metadata, OCR text, page images, and identifiers through API v3. Future BatLit metadata passes should query BHL title/item/part/page metadata before broad web searching when a PDF appears to be an older scan, BHL excerpt, reprint, or taxonomic original-description source.
+
+These systems should be incorporated as authority and provenance layers rather than unreviewed replacements for human judgment. A BatLit resolved citation should record local PDF evidence, MDD/HMW taxonomic clue matches, BHL/BLR/Zenodo/RefBank identifiers where available, and external bibliographic sources used to support the final embedded metadata.
+
 ## Audit Outputs
 
 The pipeline writes CSV and XLSX bibliographies for each routed folder, collection-level action logs, routing reports, dedupe reports, metadata embedding reports, and timestamped manifests. These files preserve the decisions made for each PDF and allow later reconstruction of what was added, excluded, or sent to manual review.

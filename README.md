@@ -183,6 +183,22 @@ metadata_enrichment/AMNH_YYYYMMDD/Needs_Metadata_Investigation_PDFs/
 
 `Zotero_Ready_PDFs/` is strict: a PDF must appear in the curated embedded metadata report with `status=embedded` and `confidence=curated`, `verified`, or `high`. All other PDFs remain in `Needs_Metadata_Investigation_PDFs/` until their citation evidence is confirmed and embedded.
 
+For the AMNH 2026-08-27 pass-1 enrichment, the active Zotero-ready folder contains 22 metadata-embedded PDFs. Three records remain in `Needs_Metadata_Investigation_PDFs/`: `Orig, 2026.pdf`, `Unknown, 1959.pdf`, and `Unknown, 1973.pdf`. Superseded clue folders, stale queues, and prior ready/needs splits are archived under `batlit-dedupe/archive/` so the active workspace only shows current outputs.
+
+## External Biodiversity Literature Infrastructure
+
+The BatLit pipeline should reuse existing biodiversity-literature infrastructure where it helps with metadata resolution, provenance, and future FAIR outputs.
+
+Relevant prior art:
+
+- Plazi TreatmentBank extracts, quality-controls, links, and disseminates taxonomic treatments, treatment citations, figures, tables, material citations, and bibliographic references from taxonomic publications.
+- Plazi/Zenodo/Pensoft Biodiversity Literature Repository (BLR) stores publications, figures, and treatments as FAIR Zenodo deposits with persistent identifiers and rich metadata.
+- RefBank is useful as a loose bibliographic-reference source before records are cleaned into higher-confidence outputs.
+- GoldenGATE Imagine is Plazi's PDF-to-structured-markup tool and may provide patterns for bat taxonomic literature extraction.
+- BHL API v3 can provide title, item, part, page, OCR, and identifier metadata for historical biodiversity works; it should become a first-class metadata source for older scans and excerpts.
+
+For BatLit, these tools should be treated as enrichment and provenance layers, not as automatic truth. The pipeline should record which sources supported a citation decision, embed only high-confidence metadata, and preserve unresolved records for manual review.
+
 Place local MDD/AMNH priority exports here:
 
 ```text
