@@ -53,6 +53,11 @@ FIELDNAMES = [
     "current_authors",
     "current_year",
     "current_doi",
+    "detected_book_title",
+    "detected_editors",
+    "detected_chapter_title",
+    "detected_chapter_author",
+    "distinctive_quote",
     "candidate_taxon",
     "taxon_status",
     "mdd_accepted_name",
@@ -203,6 +208,55 @@ def title_like_lines(lines):
     return picks
 
 
+def extract_book_chapter_metadata(lines):
+    text = "\n".join(lines[:180])
+    book_title = ""
+    editors = []
+    chapter_title = ""
+    chapter_author = ""
+
+    if re.search(r"Natural\s+\S{0,12}History\s+of\s+Vampire\s+Bats", text, re.I):
+        book_title = "Natural History of Vampire Bats"
+
+    for idx, line in enumerate(lines[:80]):
+        if re.fullmatch(r"Editors?", line, flags=re.I):
+            for candidate in lines[idx + 1: idx + 18]:
+                if re.search(r"Office|Institute|University|Museum|Service|Associate|Washington|Florida|Germany|York|and\b", candidate):
+                    continue
+                if re.search(r"\b[A-Z][a-z]+\s+[A-Z]\.\s+[A-Z][a-z]+\b", candidate):
+                    if candidate not in editors and not re.search(r"Office|Institute|University|Museum|Service", candidate):
+                        editors.append(candidate)
+                if len(editors) >= 3:
+                    break
+
+    for idx, line in enumerate(lines[:160]):
+        if re.match(r"Chapter\s+\d+", line, flags=re.I):
+            heading_parts = []
+            for candidate in lines[idx + 1: idx + 8]:
+                if re.search(r"TABLE OF CONTENTS", candidate, re.I):
+                    break
+                if re.search(r"\b[A-Z][a-z]+\s+[A-Z]\.\s+[A-Z][a-z]+\b", candidate):
+                    chapter_author = clean(candidate)
+                    break
+                if len(candidate) >= 8 and not re.search(r"Chapter|^\d+$", candidate, re.I):
+                    if candidate.isupper() or re.search(r"systematics|distributio|description|biology|ecology", candidate, re.I):
+                        heading_parts.append(candidate)
+            heading = clean(" ".join(heading_parts))
+            if re.search(r"systematics", heading, re.I) and re.search(r"distributio", heading, re.I):
+                chapter_title = "Systematics and distribution"
+            elif heading:
+                chapter_title = clean(heading.title() if heading.isupper() else heading)
+            if chapter_author:
+                break
+
+    return {
+        "book_title": book_title,
+        "editors": " | ".join(editors),
+        "chapter_title": chapter_title,
+        "chapter_author": chapter_author,
+    }
+
+
 def clue_lines(lines, taxa):
     terms = ["sp. nov", "n. sp", "new species", "type locality", "holotype", "lectotype", "description", "chiropter", "bat"]
     taxon_terms = [taxon.lower() for taxon in taxa]
@@ -215,6 +269,35 @@ def clue_lines(lines, taxa):
         if len(picks) >= 8:
             break
     return picks
+
+
+def distinctive_quote(text):
+    compact = clean(text)
+    compact = re.sub(r"\s+([,.;:])", r"\1", compact)
+    sentences = re.split(r"(?<=[.!?])\s+", compact)
+    best = ""
+    for sentence in sentences:
+        words = re.findall(r"[A-Za-z][A-Za-z'-]+", sentence)
+        if not 16 <= len(words) <= 55:
+            continue
+        low = sentence.lower()
+        if any(term in low for term in ["table of contents", "reprint collection", "references"]):
+            continue
+        score = len(set(word.lower() for word in words))
+        if any(term in low for term in ["vampire", "chiropter", "species", "genus", "described", "taxonomic"]):
+            score += 20
+        best_score = len(set(re.findall(r"[A-Za-z][A-Za-z'-]+", best.lower()))) if best else -1
+        if score > best_score:
+            best = sentence
+    return best[:700]
+
+
+def make_distinctive_query(row, quote):
+    chapter_author = clean(row.get("detected_chapter_author"))
+    chapter_title = clean(row.get("detected_chapter_title"))
+    book_title = clean(row.get("detected_book_title"))
+    pieces = [chapter_author, chapter_title, book_title, f"\"{quote}\"" if quote else ""]
+    return clean(" ".join(piece for piece in pieces if piece))[:700]
 
 
 def candidate_taxa(text, accepted):
@@ -259,6 +342,12 @@ def make_links(query):
 
 
 def make_query(row, taxon, title_lines, years):
+    chapter_title = clean(row.get("detected_chapter_title"))
+    chapter_author = clean(row.get("detected_chapter_author"))
+    book_title = clean(row.get("detected_book_title"))
+    if chapter_title and chapter_author:
+        pieces = [chapter_author, chapter_title, book_title]
+        return clean(" ".join(piece for piece in pieces if piece))[:450]
     author = clean(row.get("authors"))
     title = clean(row.get("title"))
     year = clean(row.get("year")) or (years[0] if years else "")
@@ -376,6 +465,8 @@ def main():
         try:
             text = run_pdftotext(pdf_path, (text_dir / Path(routed).stem).with_suffix(f".pages1-{args.pages}.txt"), args.pages, args.force_text)
             lines = useful_lines(text)
+            layout = extract_book_chapter_metadata(lines)
+            quote = distinctive_quote(text)
             years = sorted(set(YEAR_RE.findall(text)))
             years = [match.group(0) if hasattr(match, "group") else "".join(match) for match in YEAR_RE.finditer(text)]
             years = sorted(set(years))
@@ -388,7 +479,15 @@ def main():
                     taxon_match(taxon, accepted, synonyms) if taxon else (mdd_status, "", "", "")
                 )
                 clues = clue_lines(lines, [taxon] if taxon else [])
-                query = make_query(row, taxon, titles, years)
+                query_row = dict(row)
+                query_row.update({
+                    "detected_book_title": layout["book_title"],
+                    "detected_chapter_title": layout["chapter_title"],
+                    "detected_chapter_author": layout["chapter_author"],
+                })
+                query = make_query(query_row, taxon, titles, years)
+                if layout["book_title"] and layout["chapter_author"] and quote:
+                    query = make_distinctive_query(query_row, quote)
                 links = make_links(query)
                 clue_rows.append({
                     "status": status,
@@ -398,6 +497,11 @@ def main():
                     "current_authors": row.get("authors", ""),
                     "current_year": row.get("year", ""),
                     "current_doi": row.get("doi", ""),
+                    "detected_book_title": layout["book_title"],
+                    "detected_editors": layout["editors"],
+                    "detected_chapter_title": layout["chapter_title"],
+                    "detected_chapter_author": layout["chapter_author"],
+                    "distinctive_quote": quote,
                     "candidate_taxon": taxon,
                     "taxon_status": taxon_status,
                     "mdd_accepted_name": accepted_name,
@@ -436,6 +540,11 @@ def main():
                 "current_authors": row.get("authors", ""),
                 "current_year": row.get("year", ""),
                 "current_doi": row.get("doi", ""),
+                "detected_book_title": "",
+                "detected_editors": "",
+                "detected_chapter_title": "",
+                "detected_chapter_author": "",
+                "distinctive_quote": "",
                 "candidate_taxon": "",
                 "taxon_status": mdd_status,
                 "mdd_accepted_name": "",

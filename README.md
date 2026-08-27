@@ -137,6 +137,10 @@ python3 scripts/batlit_mdd_citation_clues.py \
 
 The script embeds approved title, author, year, DOI, journal, volume, issue, pages, ISSN, source URL, and metadata-source fields into the routed PDF copies.
 
+For edited books and AMNH excerpts, the clue scan also looks for book/chapter layout evidence across the first ten pages. A title page such as `Natural History of Vampire Bats` is treated as parent-work evidence, and a following `Chapter` page is scanned for chapter title, chapter author, table-of-contents structure, and distinctive body sentences. These clues are used to build search queries such as chapter author + chapter title + book title + a unique quoted sentence, which helps avoid false years pulled from taxonomic text, such as species-description dates.
+
+Handwritten annotations on title pages are useful evidence but are not reliably captured by normal PDF text extraction. When metadata is weak, the workflow should render the first pages for visual review and keep the rendered pages with the clue packet so annotation evidence can be checked before embedding curated metadata.
+
 To initialize/check a fresh workspace:
 
 ```bash
