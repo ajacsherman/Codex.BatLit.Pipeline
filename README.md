@@ -102,6 +102,27 @@ python3 scripts/batlit_prepare_external_metadata_lookup.py \
   --pages 10
 ```
 
+Before metadata embedding or Zotero import, run the online availability audit. This is required for AMNH and taxonomic-history batches so field scans are not treated as unique before checking BatLit, Zenodo, BHL/BioStor, Internet Archive, JSTOR/manual exact-title searches, Crossref, and OpenAlex.
+
+```bash
+python3 scripts/batlit_online_availability_audit.py \
+  --input-csv metadata_enrichment/AMNH_YYYYMMDD/AMNH_YYYYMMDD_resolved_metadata_pass1_YYYYMMDD.csv \
+  --batlit-refs index/literature_fingerprint_index.csv \
+  --out metadata_enrichment/AMNH_YYYYMMDD/AMNH_YYYYMMDD_online_availability_audit.csv
+```
+
+For a second pass using public APIs:
+
+```bash
+python3 scripts/batlit_online_availability_audit.py \
+  --input-csv metadata_enrichment/AMNH_YYYYMMDD/AMNH_YYYYMMDD_resolved_metadata_pass1_YYYYMMDD.csv \
+  --batlit-refs index/literature_fingerprint_index.csv \
+  --out metadata_enrichment/AMNH_YYYYMMDD/AMNH_YYYYMMDD_online_availability_audit_with_apis.csv \
+  --query-apis
+```
+
+API hits are title-similarity scored. Low-similarity Crossref/OpenAlex/Internet Archive hits are marked as `api_candidates_need_review`, not accepted evidence. Decision categories include `already_in_batlit`, `jstor_record_found`, `online_scan_candidate_found`, `online_metadata_or_identifier_found`, `api_candidates_need_review`, and `needs_online_review`.
+
 For curated AMNH outputs, generate a Zotero import package rather than relying on PDF drag-and-drop recognition alone:
 
 ```bash
@@ -114,6 +135,10 @@ python3 scripts/batlit_make_zotero_import_package.py \
 The package contains the metadata-enhanced PDFs, one RIS file, one BibTeX file, a CSV manifest, and `README_IMPORT.txt`. For scanned historical PDFs, import the RIS file through Zotero `File > Import`; Zotero may not create parent items reliably if the PDFs are dragged in by themselves, even when document-info metadata has been embedded.
 
 If Zotero creates parent items but drops fields, rebuild the package with the current exporter. The exporter writes Zotero-friendly RIS fields for journal articles (`T1`, `T2`, `JF`, `JO`, `JA`, `PY`, `Y1`, `SP`, `EP`, `N2`) and records stable source URLs when available. For example, the Lazell and Koopman 1985 Florida Scientist record should resolve to the JSTOR stable page `https://www.jstor.org/stable/24319878`.
+
+If Zotero opens a `Metadata Retrieval` window during import, it is running its own PDF-text lookup and may replace curated fields with partial guesses. In that case, import the package's `_metadata_only.ris` file first. This file contains the same citation records but omits `L1` PDF attachment links, preventing Zotero from auto-retrieving PDF metadata during citation import. PDFs can then be attached to the imported parent items after the citation metadata is safely in Zotero.
+
+The package also writes `_metadata_only.csl.json`, a citation-only CSL JSON file. Zotero supports CSL JSON as an import format, so this gives Zotero structured citation records even when the citation does not exist online or lacks DOI/Crossref coverage. Use this when the goal is to trust BatLit-curated metadata rather than Zotero's PDF or web lookup.
 
 This writes front-matter clues and search links, including Google Scholar, Crossref, OpenAlex, Semantic Scholar, BHL, and Internet Archive. Google Scholar is used as a human-review link because it does not provide a stable public API for automated scraping.
 

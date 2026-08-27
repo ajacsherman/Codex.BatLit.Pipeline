@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import re
 import shutil
 from datetime import datetime
@@ -55,6 +56,31 @@ def ris_person(value: str) -> str:
     return f"{last}, {first}"
 
 
+def csl_person(value: str) -> dict[str, str]:
+    text = clean(value)
+    if not text:
+        return {}
+    if "," in text:
+        parts = [clean(part) for part in text.split(",") if clean(part)]
+        person = {"family": parts[0]}
+        if len(parts) > 1:
+            person["given"] = parts[1]
+        if len(parts) > 2:
+            person["suffix"] = parts[2]
+        return person
+    tokens = text.split()
+    suffix = ""
+    if len(tokens) > 1 and tokens[-1].rstrip(".").lower() in {"jr", "sr", "ii", "iii", "iv"}:
+        suffix = tokens.pop()
+    if len(tokens) == 1:
+        person = {"family": tokens[0]}
+    else:
+        person = {"given": " ".join(tokens[:-1]), "family": tokens[-1]}
+    if suffix:
+        person["suffix"] = suffix
+    return person
+
+
 def page_start_end(value: str) -> tuple[str, str]:
     text = clean(value)
     match = re.match(r"^([A-Za-z]*\d+)\s*[-–]\s*([A-Za-z]*\d+)$", text)
@@ -101,7 +127,7 @@ def cite_key(row: dict[str, str], existing: set[str]) -> str:
     return key
 
 
-def write_ris(path: Path, rows: list[dict[str, str]]) -> None:
+def write_ris(path: Path, rows: list[dict[str, str]], include_pdf_links: bool = True) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         for row in rows:
             filename = clean(row.get("enhanced_filename")) or clean(row.get("filename"))
@@ -128,7 +154,8 @@ def write_ris(path: Path, rows: list[dict[str, str]]) -> None:
             write_ris_line(handle, "KW", "BatLit")
             write_ris_line(handle, "KW", "AMNH")
             write_ris_line(handle, "N1", f"BatLit metadata source: {clean(row.get('metadata_source'))}; evidence: {clean(row.get('evidence_sources'))}; confidence: {clean(row.get('confidence'))}")
-            write_ris_line(handle, "L1", filename)
+            if include_pdf_links:
+                write_ris_line(handle, "L1", filename)
             handle.write("ER  - \n\n")
 
 
@@ -164,6 +191,40 @@ def write_bibtex(path: Path, rows: list[dict[str, str]]) -> None:
                 if value:
                     handle.write(f"  {name} = {{{value}}},\n")
             handle.write("}\n\n")
+
+
+def csl_type(row: dict[str, str]) -> str:
+    ty = ris_type(row)
+    if ty == "JOUR":
+        return "article-journal"
+    if ty == "BOOK":
+        return "book"
+    return "chapter"
+
+
+def write_csl_json(path: Path, rows: list[dict[str, str]]) -> None:
+    used: set[str] = set()
+    items = []
+    for row in rows:
+        item: dict[str, object] = {
+            "id": cite_key(row, used),
+            "type": csl_type(row),
+            "title": clean(row.get("title")),
+            "author": [person for person in (csl_person(author) for author in split_people(clean(row.get("authors")))) if person],
+            "issued": {"date-parts": [[int(clean(row.get("year")))]]} if clean(row.get("year")).isdigit() else {},
+            "container-title": clean(row.get("journal")),
+            "volume": clean(row.get("volume")),
+            "issue": clean(row.get("issue")),
+            "page": clean(row.get("pages")),
+            "DOI": clean(row.get("doi")),
+            "ISSN": clean(row.get("issn")),
+            "URL": clean(row.get("source_url")),
+            "abstract": clean(row.get("abstract")),
+            "keyword": "BatLit, AMNH",
+            "note": f"BatLit metadata source: {clean(row.get('metadata_source'))}; evidence: {clean(row.get('evidence_sources'))}; confidence: {clean(row.get('confidence'))}",
+        }
+        items.append({key: value for key, value in item.items() if value not in ("", [], {})})
+    path.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def write_manifest(path: Path, rows: list[dict[str, str]]) -> None:
@@ -236,8 +297,10 @@ def main() -> None:
         out["package_pdf"] = source_pdf.name
         rows.append(out)
 
-    write_ris(package / f"{package_name}.ris", rows)
+    write_ris(package / f"{package_name}.ris", rows, include_pdf_links=True)
+    write_ris(package / f"{package_name}_metadata_only.ris", rows, include_pdf_links=False)
     write_bibtex(package / f"{package_name}.bib", rows)
+    write_csl_json(package / f"{package_name}_metadata_only.csl.json", rows)
     write_manifest(package / f"{package_name}_manifest.csv", rows)
     (package / "README_IMPORT.txt").write_text(
         "\n".join([
@@ -248,6 +311,14 @@ def main() -> None:
             "Do not drag these PDFs in separately and do not run Zotero Retrieve Metadata on them after import.",
             "Retrieve Metadata ignores much of the curated RIS/PDF provenance and may replace good fields with partial web-service guesses.",
             "Dragging the PDFs alone may still leave scanned historical documents as standalone attachments because Zotero does not reliably use PDF document properties for parent-item metadata.",
+            "",
+            "If Zotero opens a Metadata Retrieval window anyway, use the safer two-step import:",
+            f"1. Import {package_name}_metadata_only.ris through Zotero File > Import.",
+            "2. Attach each PDF manually to its matching parent item, or use a later BatLit attachment script.",
+            "The metadata-only RIS has no L1 PDF links, so Zotero should not auto-run PDF metadata retrieval during import.",
+            "",
+            f"The package also includes {package_name}_metadata_only.csl.json.",
+            "CSL JSON is another Zotero-supported citation import format and contains curated citation records without PDF attachment links.",
             "",
             f"Records: {len(rows)}",
             f"Created: {datetime.now().isoformat(timespec='seconds')}",
