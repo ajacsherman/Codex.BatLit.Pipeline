@@ -141,6 +141,30 @@ For edited books and AMNH excerpts, the clue scan also looks for book/chapter la
 
 Handwritten annotations on title pages are useful evidence but are not reliably captured by normal PDF text extraction. When metadata is weak, the workflow should render the first pages for visual review and keep the rendered pages with the clue packet so annotation evidence can be checked before embedding curated metadata.
 
+Unknown authors, `Unknown` filenames, blank author fields, noisy reprint-stamp titles, and suspicious taxonomic years are not treated as finished Zotero-ready metadata. They should be sent to the metadata investigation queue:
+
+```bash
+python3 scripts/batlit_metadata_investigation_queue.py \
+  --run-folder AMNH_YYYYMMDD \
+  --folder new_literature \
+  --pages 10 \
+  --render-pages 2
+```
+
+The queue reuses the pipeline's parsimonious text strategy: native PDF text first, then OCR alternatives only when front-matter text is weak. It writes first-ten-page text, rendered first-page evidence for annotations/title layouts, issue flags, distinctive quote searches, and next-action notes. For collections like AMNH, most target papers are expected to be cited in Mammal Diversity Database Chiroptera species or family records, so MDD accepted names, synonyms, and authority links should be used as a priority lookup layer whenever local MDD CSV exports are available in `index/mdd/`.
+
+For historical scans whose metadata is already flagged as weak, run the deeper OCR comparison:
+
+```bash
+python3 scripts/batlit_metadata_investigation_queue.py \
+  --run-folder AMNH_YYYYMMDD \
+  --folder new_literature \
+  --pages 10 \
+  --ocr-flagged-records
+```
+
+This tries OCR alternatives for queued records even when native text is abundant, because abundant OCR text can still be noisy enough to mislead title/author/year extraction.
+
 To initialize/check a fresh workspace:
 
 ```bash
